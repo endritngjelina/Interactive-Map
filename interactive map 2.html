@@ -1,0 +1,1560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Map Explorer</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            overflow: hidden;
+        }
+
+        .map-container {
+            position: relative;
+            height: 100vh;
+            width: 100%;
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+            z-index: 1;
+        }
+
+        .control-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            min-width: 320px;
+            max-width: 350px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            max-height: 80vh;
+            overflow-y: auto;
+            transition: transform 0.3s ease;
+        }
+
+        .control-panel.collapsed {
+            transform: translateX(calc(100% - 50px));
+        }
+
+        .control-panel h2 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #34495e;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+            margin: 5px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+        }
+
+        .btn.success {
+            background: linear-gradient(45deg, #27ae60, #2ecc71);
+        }
+
+        .btn.warning {
+            background: linear-gradient(45deg, #f39c12, #e67e22);
+        }
+
+        .btn.danger {
+            background: linear-gradient(45deg, #e74c3c, #c0392b);
+        }
+
+        .control-group input, .control-group select {
+            width: 100%;
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            font-size: 0.9em;
+        }
+
+        .btn-small {
+            padding: 5px 10px;
+            font-size: 0.8em;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        .measurement-info {
+            background: rgba(241, 196, 15, 0.1);
+            border: 1px solid #f1c40f;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            font-size: 0.85em;
+        }
+
+        .weather-info {
+            background: linear-gradient(45deg, #3498db, #2ecc71);
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-size: 0.9em;
+        }
+
+        .coordinates-display {
+            background: rgba(52, 73, 94, 0.1);
+            border: 1px solid #34495e;
+            padding: 8px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 0.85em;
+            margin-top: 5px;
+        }
+
+        .drawing-controls {
+            display: flex;
+            gap: 5px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .elevation-profile {
+            background: rgba(155, 89, 182, 0.1);
+            border: 1px solid #9b59b6;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            font-size: 0.85em;
+        }
+
+        .mini-map {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 200px;
+            height: 150px;
+            border: 2px solid #fff;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            z-index: 999;
+        }
+
+        .search-box {
+            position: relative;
+        }
+
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1001;
+            display: none;
+        }
+
+        .search-result-item {
+            padding: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+        }
+
+        .search-result-item:hover {
+            background: #f8f9fa;
+        }
+
+        .route-info {
+            background: rgba(231, 76, 60, 0.1);
+            border: 1px solid #e74c3c;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            font-size: 0.85em;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: 0.4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: 0.4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #2196F3;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        .status-indicator {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 15px;
+            border-radius: 25px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            font-size: 0.9em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .custom-popup {
+            font-family: 'Segoe UI', sans-serif;
+            min-width: 200px;
+        }
+
+        .custom-popup .popup-header {
+            background: linear-gradient(45deg, #3498db, #2980b9);
+            color: white;
+            padding: 10px 15px;
+            margin: -10px -15px 10px -15px;
+            border-radius: 5px 5px 0 0;
+            font-weight: bold;
+        }
+
+        .custom-popup .popup-content {
+            padding: 5px 0;
+        }
+
+        .custom-popup .popup-meta {
+            font-size: 0.8em;
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+
+        .leaflet-control-zoom {
+            border: none !important;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2) !important;
+        }
+
+        .leaflet-control-zoom a {
+            background: rgba(255, 255, 255, 0.95) !important;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3) !important;
+        }
+
+        .legend {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            z-index: 2000;
+            display: none;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .panel-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1001;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .drawing-instructions {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 5px;
+            position: absolute;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            font-size: 0.9em;
+            display: none;
+        }
+        
+        .drawing-active .drawing-instructions {
+            display: block;
+        }
+        
+        @media (max-width: 768px) {
+            .control-panel {
+                max-width: 90%;
+                right: 10px;
+                left: 10px;
+                top: 10px;
+            }
+            
+            .control-panel.collapsed {
+                transform: translateX(calc(100% - 60px));
+            }
+            
+            .btn-group {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+                margin: 5px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="map-container">
+        <div id="map"></div>
+        
+        <div class="panel-toggle" id="panelToggle">
+            <i class="fas fa-bars"></i>
+        </div>
+        
+        <div class="control-panel" id="controlPanel">
+            <h2><i class="fas fa-map-marked-alt"></i> Map Controls</h2>
+            
+            <div class="control-group">
+                <label for="mapStyle">Map Style:</label>
+                <select id="mapStyle" onchange="changeMapStyle()">
+                    <option value="street">Street Map</option>
+                    <option value="satellite">Satellite</option>
+                    <option value="terrain">Terrain</option>
+                    <option value="dark">Dark Mode</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="searchInput">Search Location:</label>
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="Enter city, address, or coordinates..." oninput="searchLocation()">
+                    <div class="search-results" id="searchResults"></div>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <div class="btn-group">
+                    <button class="btn success" onclick="findMyLocation()">
+                        <i class="fas fa-location-arrow"></i> My Location
+                    </button>
+                    <button class="btn" onclick="loadWorldCities()">
+                        <i class="fas fa-city"></i> Cities
+                    </button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <div class="btn-group">
+                    <button class="btn warning" onclick="loadCountryBorders()">
+                        <i class="fas fa-globe"></i> Borders
+                    </button>
+                    <button class="btn" onclick="toggleWeatherLayer()">
+                        <i class="fas fa-cloud"></i> Weather
+                    </button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Drawing Tools:</label>
+                <div class="drawing-controls">
+                    <button class="btn btn-small" onclick="startDrawing('marker')">
+                        <i class="fas fa-map-pin"></i> Pin
+                    </button>
+                    <button class="btn btn-small" onclick="startDrawing('line')">
+                        <i class="fas fa-route"></i> Line
+                    </button>
+                    <button class="btn btn-small" onclick="startDrawing('polygon')">
+                        <i class="fas fa-draw-polygon"></i> Area
+                    </button>
+                    <button class="btn btn-small" onclick="startDrawing('circle')">
+                        <i class="fas fa-circle"></i> Circle
+                    </button>
+                    <button class="btn btn-small danger" onclick="clearDrawings()">
+                        <i class="fas fa-eraser"></i> Clear
+                    </button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Measurement Tools:</label>
+                <div class="btn-group">
+                    <button class="btn btn-small" onclick="measureDistance()">
+                        <i class="fas fa-ruler"></i> Distance
+                    </button>
+                    <button class="btn btn-small" onclick="measureArea()">
+                        <i class="fas fa-vector-square"></i> Area
+                    </button>
+                    <button class="btn btn-small danger" onclick="clearMeasurements()">
+                        <i class="fas fa-times"></i> Clear
+                    </button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Layer Controls:</label>
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 5px;">
+                    <span>Traffic:</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="trafficToggle" onchange="toggleTraffic()">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 5px;">
+                    <span>Clusters:</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="clusterToggle" onchange="toggleClustering()" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <div class="btn-group">
+                    <button class="btn" onclick="exportMap()">
+                        <i class="fas fa-download"></i> Export
+                    </button>
+                    <button class="btn" onclick="shareLocation()">
+                        <i class="fas fa-share"></i> Share
+                    </button>
+                    <button class="btn danger" onclick="clearAllLayers()">
+                        <i class="fas fa-trash"></i> Clear All
+                    </button>
+                </div>
+            </div>
+
+            <div class="coordinates-display" id="coordinatesDisplay">
+                <i class="fas fa-crosshairs"></i> Click on map for coordinates
+            </div>
+
+            <div class="legend">
+                <h3 style="margin-bottom: 10px; color: #2c3e50;">Legend</h3>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #3498db;"></div>
+                    <span>Major Cities</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #e74c3c;"></div>
+                    <span>Your Location</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #f39c12;"></div>
+                    <span>Custom Markers</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #2ecc71;"></div>
+                    <span>Measurements</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #9b59b6;"></div>
+                    <span>Weather Stations</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="drawing-instructions" id="drawingInstructions">
+            Click to add points. Right-click to finish.
+        </div>
+
+        <div class="status-indicator" id="statusIndicator">
+            <i class="fas fa-info-circle"></i>
+            <span>Ready to explore</span>
+        </div>
+
+        <div class="loading" id="loadingIndicator">
+            <div class="spinner"></div>
+            <div>Loading data...</div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script>
+        // Initialize the map with better error handling
+        let map;
+        let userMarker = null;
+        let cityMarkers = L.layerGroup();
+        let borderLayers = L.layerGroup();
+        let drawingLayers = L.layerGroup();
+        let measurementLayers = L.layerGroup();
+        let weatherLayer = null;
+        let trafficLayer = null;
+        let currentLayers = [];
+        let currentBaseLayer = null;
+        let isDrawingMode = false;
+        let currentDrawingType = null;
+        let measurementMode = false;
+        let measurementPoints = [];
+        let searchResults = [];
+        let tempLinePoints = [];
+        let tempPolygonPoints = [];
+        let currentPolyline = null;
+        let currentPolygon = null;
+        let clusterEnabled = true;
+
+        // Initialize map with error handling
+        try {
+            map = L.map('map', {
+                center: [40.7128, -74.0060],
+                zoom: 10,
+                zoomControl: true,
+                attributionControl: true
+            });
+            
+            // Add drawing and measurement layers
+            drawingLayers.addTo(map);
+            measurementLayers.addTo(map);
+            
+            // Add map load event
+            map.on('load', function() {
+                updateStatus("Map loaded successfully!", "success");
+            });
+            
+        } catch (error) {
+            console.error("Map initialization error:", error);
+            updateStatus("Map initialization failed", "error");
+        }
+
+        // Add multiple tile layer options
+        const baseMaps = {
+            "OpenStreetMap": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            }),
+            "Satellite": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+                maxZoom: 19
+            }),
+            "Terrain": L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                attribution: 'Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap (CC-BY-SA)',
+                maxZoom: 17
+            }),
+            "Dark Mode": L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+                maxZoom: 19
+            })
+        };
+
+        // Add default layer with error handling
+        currentBaseLayer = baseMaps["OpenStreetMap"];
+        currentBaseLayer.addTo(map);
+        
+        // Add error handling for tile loading
+        currentBaseLayer.on('tileerror', function(error) {
+            console.warn("Tile loading error, trying fallback...");
+            // Try fallback tile server
+            const fallbackLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            });
+            map.removeLayer(currentBaseLayer);
+            fallbackLayer.addTo(map);
+            currentBaseLayer = fallbackLayer;
+        });
+
+        // Add layer control
+        L.control.layers(baseMaps).addTo(map);
+
+        // Map style change function
+        function changeMapStyle() {
+            const style = document.getElementById('mapStyle').value;
+            
+            // Remove current base layer
+            if (currentBaseLayer) {
+                map.removeLayer(currentBaseLayer);
+            }
+            
+            // Add new base layer
+            switch(style) {
+                case 'street':
+                    currentBaseLayer = baseMaps["OpenStreetMap"];
+                    break;
+                case 'satellite':
+                    currentBaseLayer = baseMaps["Satellite"];
+                    break;
+                case 'terrain':
+                    currentBaseLayer = baseMaps["Terrain"];
+                    break;
+                case 'dark':
+                    currentBaseLayer = baseMaps["Dark Mode"];
+                    break;
+                default:
+                    currentBaseLayer = baseMaps["OpenStreetMap"];
+            }
+            
+            currentBaseLayer.addTo(map);
+            updateStatus(`Switched to ${style} map style`, "success");
+        }
+
+        // Add some initial markers with custom icons
+        const customIcon = L.divIcon({
+            html: '<i class="fas fa-map-pin" style="color: #3498db; font-size: 24px;"></i>',
+            iconSize: [24, 24],
+            className: 'custom-div-icon'
+        });
+
+        const userIcon = L.divIcon({
+            html: '<i class="fas fa-user-circle" style="color: #e74c3c; font-size: 24px;"></i>',
+            iconSize: [24, 24],
+            className: 'custom-div-icon'
+        });
+
+        // Sample data for demonstration
+        const sampleLocations = [
+            { name: "New York City", lat: 40.7128, lng: -74.0060, info: "The Big Apple - Financial capital of the world" },
+            { name: "London", lat: 51.5074, lng: -0.1278, info: "Historic capital of the United Kingdom" },
+            { name: "Tokyo", lat: 35.6762, lng: 139.6503, info: "Bustling metropolis of Japan" },
+            { name: "Paris", lat: 48.8566, lng: 2.3522, info: "City of Light and romance" },
+            { name: "Sydney", lat: -33.8688, lng: 151.2093, info: "Harbor city of Australia" }
+        ];
+
+        // Add sample markers
+        sampleLocations.forEach(location => {
+            const marker = L.marker([location.lat, location.lng], { icon: customIcon })
+                .bindPopup(`
+                    <div class="custom-popup">
+                        <div class="popup-header">${location.name}</div>
+                        <div class="popup-content">
+                            <p>${location.info}</p>
+                            <div class="popup-meta">
+                                <i class="fas fa-map-marker-alt"></i> 
+                                ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}
+                            </div>
+                        </div>
+                    </div>
+                `);
+            cityMarkers.addLayer(marker);
+        });
+
+        cityMarkers.addTo(map);
+
+        // Geolocation function
+        function findMyLocation() {
+            updateStatus("Locating you...", "pulse");
+            
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        
+                        // Remove previous user marker
+                        if (userMarker) {
+                            map.removeLayer(userMarker);
+                        }
+                        
+                        // Add new user marker
+                        userMarker = L.marker([lat, lng], { icon: userIcon })
+                            .addTo(map)
+                            .bindPopup(`
+                                <div class="custom-popup">
+                                    <div class="popup-header">Your Location</div>
+                                    <div class="popup-content">
+                                        <p>You are here!</p>
+                                        <div class="popup-meta">
+                                            <i class="fas fa-crosshairs"></i> 
+                                            ${lat.toFixed(4)}, ${lng.toFixed(4)}
+                                        </div>
+                                    </div>
+                                </div>
+                            `);
+                        
+                        // Fly to user location
+                        map.flyTo([lat, lng], 12, {
+                            animate: true,
+                            duration: 1.5
+                        });
+                        
+                        updateStatus("Location found!", "success");
+                    },
+                    function(error) {
+                        updateStatus("Location access denied", "error");
+                        console.error("Geolocation error:", error);
+                    }
+                );
+            } else {
+                updateStatus("Geolocation not supported", "error");
+            }
+        }
+
+        // Load world cities (simulated GeoJSON data)
+        function loadWorldCities() {
+            showLoading();
+            updateStatus("Loading world cities...", "pulse");
+            
+            // Simulate API call delay
+            setTimeout(() => {
+                const worldCities = [
+                    { name: "Berlin", lat: 52.5200, lng: 13.4050, population: "3.7M" },
+                    { name: "Rome", lat: 41.9028, lng: 12.4964, population: "2.8M" },
+                    { name: "Madrid", lat: 40.4168, lng: -3.7038, population: "3.2M" },
+                    { name: "Mumbai", lat: 19.0760, lng: 72.8777, population: "20.4M" },
+                    { name: "Shanghai", lat: 31.2304, lng: 121.4737, population: "24.8M" },
+                    { name: "São Paulo", lat: -23.5505, lng: -46.6333, population: "22.4M" },
+                    { name: "Cairo", lat: 30.0444, lng: 31.2357, population: "20.9M" }
+                ];
+
+                // Clear existing cities except sample ones
+                cityMarkers.clearLayers();
+                
+                // Re-add sample locations
+                sampleLocations.forEach(location => {
+                    const marker = L.marker([location.lat, location.lng], { icon: customIcon })
+                        .bindPopup(`
+                            <div class="custom-popup">
+                                <div class="popup-header">${location.name}</div>
+                                <div class="popup-content">
+                                    <p>${location.info}</p>
+                                    <div class="popup-meta">
+                                        <i class="fas fa-map-marker-alt"></i> 
+                                        ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}
+                                    </div>
+                                </div>
+                            </div>
+                        `);
+                    cityMarkers.addLayer(marker);
+                });
+
+                worldCities.forEach(city => {
+                    const marker = L.marker([city.lat, city.lng], { 
+                        icon: L.divIcon({
+                            html: '<i class="fas fa-city" style="color: #3498db; font-size: 20px;"></i>',
+                            iconSize: [20, 20],
+                            className: 'custom-div-icon'
+                        })
+                    })
+                    .bindPopup(`
+                        <div class="custom-popup">
+                            <div class="popup-header">${city.name}</div>
+                            <div class="popup-content">
+                                <p><strong>Population:</strong> ${city.population}</p>
+                                <div class="popup-meta">
+                                    <i class="fas fa-users"></i> Major metropolitan area
+                                </div>
+                            </div>
+                        </div>
+                    `);
+                    
+                    cityMarkers.addLayer(marker);
+                });
+
+                hideLoading();
+                updateStatus("World cities loaded!", "success");
+            }, 1500);
+        }
+
+        // Load country borders (simulated)
+        function loadCountryBorders() {
+            showLoading();
+            updateStatus("Loading country borders...", "pulse");
+            
+            // Simulate loading country borders
+            setTimeout(() => {
+                // Sample polygon for demonstration (roughly representing a country)
+                const sampleCountry = [
+                    [51.5, -0.1],
+                    [51.5, 2.0],
+                    [50.0, 2.0],
+                    [50.0, -0.1],
+                    [51.5, -0.1]
+                ];
+
+                const polygon = L.polygon(sampleCountry, {
+                    color: '#3498db',
+                    weight: 2,
+                    opacity: 0.8,
+                    fillColor: '#3498db',
+                    fillOpacity: 0.2
+                }).bindPopup(`
+                    <div class="custom-popup">
+                        <div class="popup-header">Sample Country Border</div>
+                        <div class="popup-content">
+                            <p>This is a demonstration of country border visualization.</p>
+                            <div class="popup-meta">
+                                <i class="fas fa-flag"></i> GeoJSON boundary data
+                            </div>
+                        </div>
+                    </div>
+                `);
+
+                borderLayers.addLayer(polygon);
+                borderLayers.addTo(map);
+
+                hideLoading();
+                updateStatus("Country borders loaded!", "success");
+            }, 2000);
+        }
+
+        // Clear all layers
+        function clearAllLayers() {
+            cityMarkers.clearLayers();
+            borderLayers.clearLayers();
+            drawingLayers.clearLayers();
+            measurementLayers.clearLayers();
+            if (userMarker) {
+                map.removeLayer(userMarker);
+                userMarker = null;
+            }
+            if (weatherLayer) {
+                map.removeLayer(weatherLayer);
+                weatherLayer = null;
+            }
+            if (trafficLayer) {
+                map.removeLayer(trafficLayer);
+                trafficLayer = null;
+                document.getElementById('trafficToggle').checked = false;
+            }
+            
+            // Re-add sample locations
+            sampleLocations.forEach(location => {
+                const marker = L.marker([location.lat, location.lng], { icon: customIcon })
+                    .bindPopup(`
+                        <div class="custom-popup">
+                            <div class="popup-header">${location.name}</div>
+                            <div class="popup-content">
+                                <p>${location.info}</p>
+                                <div class="popup-meta">
+                                    <i class="fas fa-map-marker-alt"></i> 
+                                    ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}
+                                </div>
+                            </div>
+                        </div>
+                    `);
+                cityMarkers.addLayer(marker);
+            });
+            
+            cityMarkers.addTo(map);
+            updateStatus("All layers cleared!", "success");
+        }
+        
+        // Clear drawings
+        function clearDrawings() {
+            drawingLayers.clearLayers();
+            updateStatus("Drawings cleared", "success");
+        }
+        
+        // Clear measurements
+        function clearMeasurements() {
+            measurementLayers.clearLayers();
+            measurementMode = false;
+            map.getContainer().style.cursor = '';
+            updateStatus("Measurements cleared", "success");
+        }
+
+        // Utility functions
+        function updateStatus(message, type = "") {
+            const indicator = document.getElementById('statusIndicator');
+            indicator.innerHTML = `<i class="fas fa-info-circle"></i><span>${message}</span>`;
+            
+            indicator.className = 'status-indicator';
+            if (type) {
+                indicator.classList.add(type);
+            }
+            
+            if (type === "success") {
+                setTimeout(() => {
+                    updateStatus("Ready to explore");
+                }, 3000);
+            }
+        }
+
+        function showLoading() {
+            document.getElementById('loadingIndicator').style.display = 'block';
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingIndicator').style.display = 'none';
+        }
+
+        // Enhanced map click handler
+        map.on('click', function(e) {
+            const lat = e.latlng.lat.toFixed(6);
+            const lng = e.latlng.lng.toFixed(6);
+            
+            // Update coordinates display
+            document.getElementById('coordinatesDisplay').innerHTML = `
+                <i class="fas fa-crosshairs"></i> ${lat}, ${lng}
+            `;
+            
+            if (isDrawingMode) {
+                handleDrawing(e);
+            } else if (measurementMode) {
+                handleMeasurement(e);
+            } else {
+                // Regular click popup
+                const popup = L.popup()
+                    .setLatLng(e.latlng)
+                    .setContent(`
+                        <div class="custom-popup">
+                            <div class="popup-header">Location Details</div>
+                            <div class="popup-content">
+                                <p><strong>Coordinates:</strong> ${lat}, ${lng}</p>
+                                <p><strong>Elevation:</strong> ~${Math.floor(Math.random() * 1000)}m</p>
+                                <div class="popup-meta">
+                                    <i class="fas fa-mouse-pointer"></i> Click coordinates
+                                </div>
+                                <div style="margin-top: 10px;">
+                                    <button class="btn btn-small" onclick="addCustomMarker(${lat}, ${lng})">
+                                        <i class="fas fa-plus"></i> Add Marker
+                                    </button>
+                                    <button class="btn btn-small" onclick="getWeatherHere(${lat}, ${lng})">
+                                        <i class="fas fa-cloud"></i> Weather
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `)
+                    .openOn(map);
+            }
+        });
+        
+        // Add custom marker function
+        function addCustomMarker(lat, lng) {
+            const marker = L.marker([lat, lng], {
+                icon: L.divIcon({
+                    html: '<i class="fas fa-map-pin" style="color: #f39c12; font-size: 24px;"></i>',
+                    iconSize: [24, 24],
+                    className: 'custom-div-icon'
+                })
+            }).addTo(drawingLayers).bindPopup(`
+                <div class="custom-popup">
+                    <div class="popup-header">Custom Marker</div>
+                    <div class="popup-content">
+                        <p>User-created marker</p>
+                        <button class="btn btn-small danger" onclick="this.closest('.leaflet-popup').remove(); drawingLayers.removeLayer(marker)">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </div>
+                </div>
+            `);
+            map.closePopup();
+        }
+        
+        // Get weather function
+        function getWeatherHere(lat, lng) {
+            updateStatus("Getting weather data...", "pulse");
+            
+            // Simulate API call
+            setTimeout(() => {
+                const conditions = ["Sunny", "Cloudy", "Rainy", "Snowy"];
+                const randomCondition = conditions[Math.floor(Math.random() * conditions.length)];
+                const temperature = Math.floor(Math.random() * 30) - 5;
+                
+                const popup = L.popup()
+                    .setLatLng([lat, lng])
+                    .setContent(`
+                        <div class="weather-info">
+                            <h3>Current Weather</h3>
+                            <p><strong>Condition:</strong> ${randomCondition}</p>
+                            <p><strong>Temperature:</strong> ${temperature}°C</p>
+                            <p><strong>Humidity:</strong> ${Math.floor(Math.random() * 100)}%</p>
+                            <p><strong>Wind:</strong> ${Math.floor(Math.random() * 30)} km/h</p>
+                            <i class="fas fa-cloud-sun"></i> Weather data
+                        </div>
+                    `)
+                    .openOn(map);
+                
+                updateStatus("Weather data loaded", "success");
+            }, 1000);
+        }
+
+        // Mouse move handler for coordinates
+        map.on('mousemove', function(e) {
+            if (!isDrawingMode && !measurementMode) {
+                const lat = e.latlng.lat.toFixed(6);
+                const lng = e.latlng.lng.toFixed(6);
+                document.getElementById('coordinatesDisplay').innerHTML = `
+                    <i class="fas fa-mouse-pointer"></i> ${lat}, ${lng}
+                `;
+            }
+        });
+        
+        // Right click handler to finish drawing
+        map.on('contextmenu', function(e) {
+            if (isDrawingMode && (currentDrawingType === 'line' || currentDrawingType === 'polygon')) {
+                finishDrawing();
+            }
+        });
+
+        // Search functionality
+        function searchLocation() {
+            const query = document.getElementById('searchInput').value;
+            if (query.length < 2) {
+                document.getElementById('searchResults').style.display = 'none';
+                return;
+            }
+            
+            // Simulate search results (in real app, use geocoding API)
+            const mockResults = [
+                { name: "New York, NY", lat: 40.7128, lng: -74.0060 },
+                { name: "London, UK", lat: 51.5074, lng: -0.1278 },
+                { name: "Tokyo, Japan", lat: 35.6762, lng: 139.6503 },
+                { name: "Paris, France", lat: 48.8566, lng: 2.3522 },
+                { name: "Berlin, Germany", lat: 52.5200, lng: 13.4050 },
+                { name: "Sydney, Australia", lat: -33.8688, lng: 151.2093 },
+                { name: "Rio de Janeiro, Brazil", lat: -22.9068, lng: -43.1729 }
+            ].filter(result => result.name.toLowerCase().includes(query.toLowerCase()));
+            
+            displaySearchResults(mockResults);
+        }
+
+        function displaySearchResults(results) {
+            const resultsDiv = document.getElementById('searchResults');
+            if (results.length === 0) {
+                resultsDiv.style.display = 'none';
+                return;
+            }
+            
+            resultsDiv.innerHTML = results.map(result => 
+                `<div class="search-result-item" onclick="selectSearchResult(${result.lat}, ${result.lng}, '${result.name}')">
+                    <i class="fas fa-map-marker-alt"></i> ${result.name}
+                </div>`
+            ).join('');
+            resultsDiv.style.display = 'block';
+        }
+
+        function selectSearchResult(lat, lng, name) {
+            map.flyTo([lat, lng], 12);
+            document.getElementById('searchInput').value = name;
+            document.getElementById('searchResults').style.display = 'none';
+            
+            // Add temporary marker
+            const marker = L.marker([lat, lng], {
+                icon: L.divIcon({
+                    html: '<i class="fas fa-search" style="color: #9b59b6; font-size: 24px;"></i>',
+                    iconSize: [24, 24],
+                    className: 'custom-div-icon'
+                })
+            }).addTo(map).bindPopup(`
+                <div class="custom-popup">
+                    <div class="popup-header">${name}</div>
+                    <div class="popup-content">
+                        <p>Search result location</p>
+                    </div>
+                </div>
+            `);
+            
+            updateStatus(`Found: ${name}`, "success");
+            
+            // Remove marker after 10 seconds
+            setTimeout(() => {
+                map.removeLayer(marker);
+            }, 10000);
+        }
+
+        // Drawing functions
+        function startDrawing(type) {
+            isDrawingMode = true;
+            currentDrawingType = type;
+            measurementMode = false;
+            tempLinePoints = [];
+            tempPolygonPoints = [];
+            currentPolyline = null;
+            currentPolygon = null;
+            
+            document.body.classList.add('drawing-active');
+            updateStatus(`Drawing mode: ${type}`, "pulse");
+            
+            // Change cursor
+            map.getContainer().style.cursor = 'crosshair';
+        }
+
+        function handleDrawing(e) {
+            if (!isDrawingMode) return;
+            
+            const lat = e.latlng.lat;
+            const lng = e.latlng.lng;
+            
+            switch(currentDrawingType) {
+                case 'marker':
+                    const marker = L.marker([lat, lng], {
+                        icon: L.divIcon({
+                            html: '<i class="fas fa-map-pin" style="color: #f39c12; font-size: 24px;"></i>',
+                            iconSize: [24, 24],
+                            className: 'custom-div-icon'
+                        })
+                    }).addTo(drawingLayers).bindPopup(`
+                        <div class="custom-popup">
+                            <div class="popup-header">Custom Marker</div>
+                            <div class="popup-content">
+                                <p>User-created marker</p>
+                                <button class="btn btn-small danger" onclick="this.closest('.leaflet-popup').remove(); drawingLayers.removeLayer(marker)">
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                            </div>
+                        </div>
+                    `);
+                    stopDrawing();
+                    break;
+                    
+                case 'line':
+                    tempLinePoints.push([lat, lng]);
+                    
+                    // Remove previous temporary line if exists
+                    if (currentPolyline) {
+                        drawingLayers.removeLayer(currentPolyline);
+                    }
+                    
+                    // Create new polyline
+                    currentPolyline = L.polyline(tempLinePoints, {
+                        color: '#e74c3c',
+                        weight: 3,
+                        opacity: 0.8,
+                        dashArray: '5, 10'
+                    }).addTo(drawingLayers);
+                    break;
+                    
+                case 'polygon':
+                    tempPolygonPoints.push([lat, lng]);
+                    
+                    // Remove previous temporary polygon if exists
+                    if (currentPolygon) {
+                        drawingLayers.removeLayer(currentPolygon);
+                    }
+                    
+                    // Create new polygon
+                    currentPolygon = L.polygon(tempPolygonPoints, {
+                        color: '#3498db',
+                        weight: 2,
+                        opacity: 0.8,
+                        fillColor: '#3498db',
+                        fillOpacity: 0.3
+                    }).addTo(drawingLayers);
+                    break;
+                    
+                case 'circle':
+                    const circle = L.circle([lat, lng], {
+                        color: '#3498db',
+                        fillColor: '#3498db',
+                        fillOpacity: 0.3,
+                        radius: 1000 // 1km radius
+                    }).addTo(drawingLayers).bindPopup(`
+                        <div class="custom-popup">
+                            <div class="popup-header">Circle Area</div>
+                            <div class="popup-content">
+                                <p>Radius: 1 km</p>
+                                <p>Area: ${(Math.PI * 1 * 1).toFixed(2)} km²</p>
+                            </div>
+                        </div>
+                    `);
+                    stopDrawing();
+                    break;
+            }
+        }
+        
+        function finishDrawing() {
+            if (currentDrawingType === 'line' && tempLinePoints.length > 1) {
+                // Create final line
+                const line = L.polyline(tempLinePoints, {
+                    color: '#e74c3c',
+                    weight: 3,
+                    opacity: 0.8
+                }).addTo(drawingLayers);
+                
+                const distance = calculateDistance(tempLinePoints);
+                line.bindPopup(`
+                    <div class="custom-popup">
+                        <div class="popup-header">Line Measurement</div>
+                        <div class="popup-content">
+                            <p>Distance: ${distance.toFixed(2)} km</p>
+                        </div>
+                    </div>
+                `);
+            }
+            else if (currentDrawingType === 'polygon' && tempPolygonPoints.length > 2) {
+                // Create final polygon
+                const polygon = L.polygon(tempPolygonPoints, {
+                    color: '#3498db',
+                    weight: 2,
+                    opacity: 0.8,
+                    fillColor: '#3498db',
+                    fillOpacity: 0.3
+                }).addTo(drawingLayers);
+                
+                const area = calculateArea(tempPolygonPoints);
+                polygon.bindPopup(`
+                    <div class="custom-popup">
+                        <div class="popup-header">Polygon Area</div>
+                        <div class="popup-content">
+                            <p>Area: ${area.toFixed(2)} km²</p>
+                        </div>
+                    </div>
+                `);
+            }
+            
+            stopDrawing();
+        }
+
+        function stopDrawing() {
+            isDrawingMode = false;
+            currentDrawingType = null;
+            tempLinePoints = [];
+            tempPolygonPoints = [];
+            currentPolyline = null;
+            currentPolygon = null;
+            map.getContainer().style.cursor = '';
+            document.body.classList.remove('drawing-active');
+            updateStatus("Drawing completed", "success");
+        }
+
+        // Measurement functions
+        function measureDistance() {
+            measurementMode = true;
+            isDrawingMode = false;
+            measurementPoints = [];
+            updateStatus("Click points to measure distance", "pulse");
+            map.getContainer().style.cursor = 'crosshair';
+        }
+        
+        function measureArea() {
+            measurementMode = true;
+            isDrawingMode = false;
+            measurementPoints = [];
+            updateStatus("Click points to create area measurement", "pulse");
+            map.getContainer().style.cursor = 'crosshair';
+        }
+
+        function handleMeasurement(e) {
+            if (!measurementMode) return;
+            
+            measurementPoints.push([e.latlng.lat, e.latlng.lng]);
+            
+            // Add temporary marker
+            L.marker([e.latlng.lat, e.latlng.lng], {
+                icon: L.divIcon({
+                    html: '<i class="fas fa-crosshairs" style="color: #2ecc71; font-size: 16px;"></i>',
+                    iconSize: [16, 16],
+                    className: 'custom-div-icon'
+                })
+            }).addTo(measurementLayers);
+            
+            if (measurementPoints.length > 1) {
+                // Remove previous temporary line if exists
+                if (window.tempMeasurementLine) {
+                    measurementLayers.removeLayer(window.tempMeasurementLine);
+                }
+                
+                // Create new polyline
+                window.tempMeasurementLine = L.polyline(measurementPoints, {
+                    color: '#2ecc71',
+                    weight: 3,
+                    dashArray: '5, 5'
+                }).addTo(measurementLayers);
+            }
+            
+            if (measurementPoints.length >= 2 && measurementMode) {
+                const distance = calculateDistance(measurementPoints);
+                document.getElementById('coordinatesDisplay').innerHTML = `
+                    <i class="fas fa-ruler"></i> Distance: ${distance.toFixed(2)} km
+                `;
+            }
+        }
+        
+        // Utility functions
+        function calculateDistance(points) {
+            let totalDistance = 0;
+            for (let i = 0; i < points.length - 1; i++) {
+                const point1 = points[i];
+                const point2 = points[i + 1];
+                
+                const R = 6371; // Earth's radius in km
+                const dLat = (point2[0] - point1[0]) * Math.PI / 180;
+                const dLon = (point2[1] - point1[1]) * Math.PI / 180;
+                const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                          Math.cos(point1[0] * Math.PI / 180) * Math.cos(point2[0] * Math.PI / 180) *
+                          Math.sin(dLon/2) * Math.sin(dLon/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                totalDistance += R * c;
+            }
+            return totalDistance;
+        }
+        
+        function calculateArea(points) {
+            // Using shoelace formula for polygon area
+            let area = 0;
+            const n = points.length;
+            
+            for (let i = 0; i < n; i++) {
+                const j = (i + 1) % n;
+                area += points[i][1] * points[j][0];
+                area -= points[i][0] * points[j][1];
+            }
+            
+            area = Math.abs(area) / 2;
+            
+            // Convert to km² (approximation)
+            const R = 6371; // Earth's radius in km
+            return area * (Math.PI/180) * R * R;
+        }
+
+        // Weather layer toggle
+        function toggleWeatherLayer() {
+            if (weatherLayer) {
+                map.removeLayer(weatherLayer);
+                weatherLayer = null;
+                updateStatus("Weather layer removed", "success");
+            } else {
+                showLoading();
+                updateStatus("Loading weather data...", "pulse");
+                
+                // Simulate loading weather data
+                setTimeout(() => {
+                    weatherLayer = L.layerGroup();
+                    const weatherPoints = [
+                        {lat: 40.7128, lng: -74.0060, temp: 22, condition: "Sunny"},
+                        {lat: 41.8781, lng: -87.6298, temp: 18, condition: "Cloudy"},
+                        {lat: 34.0522, lng: -118.2437, temp: 25, condition: "Clear"},
+                        {lat: 51.5074, lng: -0.1278, temp: 15, condition: "Rainy"},
+                        {lat: 35.6762, lng: 139.6503, temp: 20, condition: "Partly Cloudy"}
+                    ];
+                    
+                    weatherPoints.forEach(point => {
+                        const marker = L.marker([point.lat, point.lng], {
+                            icon: L.divIcon({
+                                html: `<div style="background: rgba(52,152,219,0.8); color: white; padding: 5px; border-radius: 5px; font-size: 12px; font-weight: bold;">${point.temp}°C</div>`,
+                                iconSize: [50, 30],
+                                className: 'weather-marker'
+                            })
+                        }).bindPopup(`
+                            <div class="weather-info">
+                                <strong>${point.condition}</strong><br>
+                                Temperature: ${point.temp}°C<br>
+                                <i class="fas fa-thermometer-half"></i> Weather data
+                            </div>
+                        `);
+                        weatherLayer.addLayer(marker);
+                    });
+                    
+                    weatherLayer.addTo(map);
+                    hideLoading();
+                    updateStatus("Weather layer added", "success");
+                }, 1500);
+            }
+        }
+
+        // Traffic toggle
+        function toggleTraffic() {
+            const toggle = document.getElementById('trafficToggle');
+            if (toggle.checked) {
+                // Simulate traffic layer
+                trafficLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors',
+                    opacity: 0.7
+                });
+                trafficLayer.addTo(map);
+                updateStatus("Traffic layer enabled", "success");
+            } else {
+                if (trafficLayer) {
+                    map.removeLayer(trafficLayer);
+                    trafficLayer = null;
+                }
+                updateStatus("Traffic layer disabled", "success");
+            }
+        }
+
+        // Clustering toggle
+        function toggleClustering() {
+            const toggle = document.getElementById('clusterToggle');
+            if (toggle.checked) {
+                // For demonstration, just show a message
+                updateStatus("Marker clustering enabled", "success");
+            } else {
+                updateStatus("Marker clustering disabled", "success");
+            }
+        }
+        
+        // Export function
+        function exportMap() {
+            updateStatus("Exporting map as image...", "pulse");
+            setTimeout(() => {
+                updateStatus("Map exported successfully", "success");
+                alert("Map exported! (In a real app, this would download an image)");
+            }, 1000);
+        }
+        
+        // Share function
+        function shareLocation() {
+            const center = map.getCenter();
+            const zoom = map.getZoom();
+            const url = `https://example.com/map?lat=${center.lat}&lng=${center.lng}&zoom=${zoom}`;
+            
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Check out this map location',
+                    text: 'Explore this location on the interactive map',
+                    url: url
+                }).then(() => {
+                    updateStatus("Location shared successfully", "success");
+                }).catch(error => {
+                    updateStatus("Sharing failed", "error");
+                    console.error('Sharing failed:', error);
+                });
+            } else {
+                // Fallback to copying to clipboard
+                navigator.clipboard.writeText(url).then(() => {
+                    updateStatus("Link copied to clipboard", "success");
+                }).catch(err => {
+                    updateStatus("Failed to copy link", "error");
+                    console.error('Failed to copy: ', err);
+                });
+            }
+        }
+        
+        // Panel toggle functionality
+        document.getElementById('panelToggle').addEventListener('click', function() {
+            const panel = document.getElementById('controlPanel');
+            panel.classList.toggle('collapsed');
+            this.innerHTML = panel.classList.contains('collapsed') ? 
+                '<i class="fas fa-chevron-left"></i>' : 
+                '<i class="fas fa-bars"></i>';
+        });
+
+        // Welcome message and map check
+        setTimeout(() => {
+            if (map.getContainer()) {
+                updateStatus("Map ready! Click anywhere to explore", "pulse");
+                
+                // Force map resize to ensure proper display
+                setTimeout(() => {
+                    map.invalidateSize();
+                }, 100);
+            } else {
+                updateStatus("Map loading issue detected", "error");
+            }
+        }, 1000);
+
+        // Force map resize on window resize
+        window.addEventListener('resize', function() {
+            if (map) {
+                map.invalidateSize();
+            }
+        });
+    </script>
+</body>
+</html>

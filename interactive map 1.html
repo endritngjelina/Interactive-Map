@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Map Explorer</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            overflow: hidden;
+        }
+
+        .map-container {
+            position: relative;
+            height: 100vh;
+            width: 100%;
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+            z-index: 1;
+        }
+
+        .control-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            min-width: 280px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .control-panel h2 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #34495e;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+            margin: 5px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+        }
+
+        .btn.success {
+            background: linear-gradient(45deg, #27ae60, #2ecc71);
+        }
+
+        .btn.danger {
+            background: linear-gradient(45deg, #e74c3c, #c0392b);
+        }
+
+        .btn.warning {
+            background: linear-gradient(45deg, #f39c12, #e67e22);
+        }
+
+        .status-indicator {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 15px;
+            border-radius: 25px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            font-size: 0.9em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .custom-popup {
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        .custom-popup .popup-header {
+            background: linear-gradient(45deg, #3498db, #2980b9);
+            color: white;
+            padding: 10px 15px;
+            margin: -10px -15px 10px -15px;
+            border-radius: 5px 5px 0 0;
+            font-weight: bold;
+        }
+
+        .custom-popup .popup-content {
+            padding: 5px 0;
+        }
+
+        .custom-popup .popup-meta {
+            font-size: 0.8em;
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+
+        .leaflet-control-zoom {
+            border: none !important;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2) !important;
+        }
+
+        .leaflet-control-zoom a {
+            background: rgba(255, 255, 255, 0.95) !important;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3) !important;
+        }
+
+        .legend {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            z-index: 2000;
+            display: none;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="map-container">
+        <div id="map"></div>
+        
+        <div class="control-panel">
+            <h2><i class="fas fa-map-marked-alt"></i> Map Controls</h2>
+            
+            <div class="control-group">
+                <label for="mapStyle">Map Style:</label>
+                <select id="mapStyle" onchange="changeMapStyle()" style="width: 100%; padding: 8px; border-radius: 5px; border: 1px solid #ddd;">
+                    <option value="street">Street Map</option>
+                    <option value="satellite">Satellite</option>
+                    <option value="terrain">Terrain</option>
+                    <option value="dark">Dark Mode</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <button class="btn success" onclick="findMyLocation()">
+                    <i class="fas fa-location-arrow"></i> Find My Location
+                </button>
+                <button class="btn" onclick="loadWorldCities()">
+                    <i class="fas fa-city"></i> Load World Cities
+                </button>
+            </div>
+
+            <div class="control-group">
+                <button class="btn warning" onclick="loadCountryBorders()">
+                    <i class="fas fa-globe"></i> Country Borders
+                </button>
+                <button class="btn danger" onclick="clearAllLayers()">
+                    <i class="fas fa-trash"></i> Clear All
+                </button>
+            </div>
+
+            <div class="legend">
+                <h3 style="margin-bottom: 10px; color: #2c3e50;">Legend</h3>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #3498db;"></div>
+                    <span>Major Cities</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #e74c3c;"></div>
+                    <span>Your Location</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #f39c12;"></div>
+                    <span>Points of Interest</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-indicator" id="statusIndicator">
+            <i class="fas fa-info-circle"></i>
+            <span>Ready to explore</span>
+        </div>
+
+        <div class="loading" id="loadingIndicator">
+            <div class="spinner"></div>
+            <div>Loading data...</div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script>
+        // Initialize the map with better error handling
+        let map;
+        let userMarker = null;
+        let cityMarkers = L.layerGroup();
+        let borderLayers = L.layerGroup();
+        let currentLayers = [];
+        let currentBaseLayer = null;
+
+        // Initialize map with error handling
+        try {
+            map = L.map('map', {
+                center: [40.7128, -74.0060],
+                zoom: 10,
+                zoomControl: true,
+                attributionControl: true
+            });
+            
+            // Add map load event
+            map.on('load', function() {
+                updateStatus("Map loaded successfully!", "success");
+            });
+            
+        } catch (error) {
+            console.error("Map initialization error:", error);
+            updateStatus("Map initialization failed", "error");
+        }
+
+        // Add multiple tile layer options
+        const baseMaps = {
+            "OpenStreetMap": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            }),
+            "Satellite": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+                maxZoom: 19
+            }),
+            "Terrain": L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                attribution: 'Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap (CC-BY-SA)',
+                maxZoom: 17
+            }),
+            "Dark Mode": L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+                maxZoom: 19
+            })
+        };
+
+        // Add default layer with error handling
+        currentBaseLayer = baseMaps["OpenStreetMap"];
+        currentBaseLayer.addTo(map);
+        
+        // Add error handling for tile loading
+        currentBaseLayer.on('tileerror', function(error) {
+            console.warn("Tile loading error, trying fallback...");
+            // Try fallback tile server
+            const fallbackLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            });
+            map.removeLayer(currentBaseLayer);
+            fallbackLayer.addTo(map);
+            currentBaseLayer = fallbackLayer;
+        });
+
+        // Add layer control
+        L.control.layers(baseMaps).addTo(map);
+
+        // Map style change function
+        function changeMapStyle() {
+            const style = document.getElementById('mapStyle').value;
+            
+            // Remove current base layer
+            if (currentBaseLayer) {
+                map.removeLayer(currentBaseLayer);
+            }
+            
+            // Add new base layer
+            switch(style) {
+                case 'street':
+                    currentBaseLayer = baseMaps["OpenStreetMap"];
+                    break;
+                case 'satellite':
+                    currentBaseLayer = baseMaps["Satellite"];
+                    break;
+                case 'terrain':
+                    currentBaseLayer = baseMaps["Terrain"];
+                    break;
+                case 'dark':
+                    currentBaseLayer = baseMaps["Dark Mode"];
+                    break;
+                default:
+                    currentBaseLayer = baseMaps["OpenStreetMap"];
+            }
+            
+            currentBaseLayer.addTo(map);
+            updateStatus(`Switched to ${style} map style`, "success");
+        }
+
+        // Add some initial markers with custom icons
+        const customIcon = L.divIcon({
+            html: '<i class="fas fa-map-pin" style="color: #3498db; font-size: 24px;"></i>',
+            iconSize: [24, 24],
+            className: 'custom-div-icon'
+        });
+
+        const userIcon = L.divIcon({
+            html: '<i class="fas fa-user-circle" style="color: #e74c3c; font-size: 24px;"></i>',
+            iconSize: [24, 24],
+            className: 'custom-div-icon'
+        });
+
+        // Sample data for demonstration
+        const sampleLocations = [
+            { name: "New York City", lat: 40.7128, lng: -74.0060, info: "The Big Apple - Financial capital of the world" },
+            { name: "London", lat: 51.5074, lng: -0.1278, info: "Historic capital of the United Kingdom" },
+            { name: "Tokyo", lat: 35.6762, lng: 139.6503, info: "Bustling metropolis of Japan" },
+            { name: "Paris", lat: 48.8566, lng: 2.3522, info: "City of Light and romance" },
+            { name: "Sydney", lat: -33.8688, lng: 151.2093, info: "Harbor city of Australia" }
+        ];
+
+        // Add sample markers
+        sampleLocations.forEach(location => {
+            const marker = L.marker([location.lat, location.lng], { icon: customIcon })
+                .bindPopup(`
+                    <div class="custom-popup">
+                        <div class="popup-header">${location.name}</div>
+                        <div class="popup-content">
+                            <p>${location.info}</p>
+                            <div class="popup-meta">
+                                <i class="fas fa-map-marker-alt"></i> 
+                                ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}
+                            </div>
+                        </div>
+                    </div>
+                `);
+            cityMarkers.addLayer(marker);
+        });
+
+        cityMarkers.addTo(map);
+
+        // Geolocation function
+        function findMyLocation() {
+            updateStatus("Locating you...", "pulse");
+            
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        
+                        // Remove previous user marker
+                        if (userMarker) {
+                            map.removeLayer(userMarker);
+                        }
+                        
+                        // Add new user marker
+                        userMarker = L.marker([lat, lng], { icon: userIcon })
+                            .addTo(map)
+                            .bindPopup(`
+                                <div class="custom-popup">
+                                    <div class="popup-header">Your Location</div>
+                                    <div class="popup-content">
+                                        <p>You are here!</p>
+                                        <div class="popup-meta">
+                                            <i class="fas fa-crosshairs"></i> 
+                                            ${lat.toFixed(4)}, ${lng.toFixed(4)}
+                                        </div>
+                                    </div>
+                                </div>
+                            `);
+                        
+                        // Fly to user location
+                        map.flyTo([lat, lng], 12, {
+                            animate: true,
+                            duration: 1.5
+                        });
+                        
+                        updateStatus("Location found!", "success");
+                    },
+                    function(error) {
+                        updateStatus("Location access denied", "error");
+                        console.error("Geolocation error:", error);
+                    }
+                );
+            } else {
+                updateStatus("Geolocation not supported", "error");
+            }
+        }
+
+        // Load world cities (simulated GeoJSON data)
+        function loadWorldCities() {
+            showLoading();
+            updateStatus("Loading world cities...", "pulse");
+            
+            // Simulate API call delay
+            setTimeout(() => {
+                const worldCities = [
+                    { name: "Berlin", lat: 52.5200, lng: 13.4050, population: "3.7M" },
+                    { name: "Rome", lat: 41.9028, lng: 12.4964, population: "2.8M" },
+                    { name: "Madrid", lat: 40.4168, lng: -3.7038, population: "3.2M" },
+                    { name: "Mumbai", lat: 19.0760, lng: 72.8777, population: "20.4M" },
+                    { name: "Shanghai", lat: 31.2304, lng: 121.4737, population: "24.8M" },
+                    { name: "São Paulo", lat: -23.5505, lng: -46.6333, population: "22.4M" },
+                    { name: "Cairo", lat: 30.0444, lng: 31.2357, population: "20.9M" }
+                ];
+
+                worldCities.forEach(city => {
+                    const marker = L.marker([city.lat, city.lng], { 
+                        icon: L.divIcon({
+                            html: '<i class="fas fa-city" style="color: #f39c12; font-size: 20px;"></i>',
+                            iconSize: [20, 20],
+                            className: 'custom-div-icon'
+                        })
+                    })
+                    .bindPopup(`
+                        <div class="custom-popup">
+                            <div class="popup-header">${city.name}</div>
+                            <div class="popup-content">
+                                <p><strong>Population:</strong> ${city.population}</p>
+                                <div class="popup-meta">
+                                    <i class="fas fa-users"></i> Major metropolitan area
+                                </div>
+                            </div>
+                        </div>
+                    `);
+                    
+                    cityMarkers.addLayer(marker);
+                });
+
+                hideLoading();
+                updateStatus("World cities loaded!", "success");
+            }, 1500);
+        }
+
+        // Load country borders (simulated)
+        function loadCountryBorders() {
+            showLoading();
+            updateStatus("Loading country borders...", "pulse");
+            
+            // Simulate loading country borders
+            setTimeout(() => {
+                // Sample polygon for demonstration (roughly representing a country)
+                const sampleCountry = [
+                    [51.5, -0.1],
+                    [51.5, 2.0],
+                    [50.0, 2.0],
+                    [50.0, -0.1],
+                    [51.5, -0.1]
+                ];
+
+                const polygon = L.polygon(sampleCountry, {
+                    color: '#3498db',
+                    weight: 2,
+                    opacity: 0.8,
+                    fillColor: '#3498db',
+                    fillOpacity: 0.2
+                }).bindPopup(`
+                    <div class="custom-popup">
+                        <div class="popup-header">Sample Country Border</div>
+                        <div class="popup-content">
+                            <p>This is a demonstration of country border visualization.</p>
+                            <div class="popup-meta">
+                                <i class="fas fa-flag"></i> GeoJSON boundary data
+                            </div>
+                        </div>
+                    </div>
+                `);
+
+                borderLayers.addLayer(polygon);
+                borderLayers.addTo(map);
+
+                hideLoading();
+                updateStatus("Country borders loaded!", "success");
+            }, 2000);
+        }
+
+        // Clear all layers
+        function clearAllLayers() {
+            cityMarkers.clearLayers();
+            borderLayers.clearLayers();
+            if (userMarker) {
+                map.removeLayer(userMarker);
+                userMarker = null;
+            }
+            
+            // Re-add sample locations
+            sampleLocations.forEach(location => {
+                const marker = L.marker([location.lat, location.lng], { icon: customIcon })
+                    .bindPopup(`
+                        <div class="custom-popup">
+                            <div class="popup-header">${location.name}</div>
+                            <div class="popup-content">
+                                <p>${location.info}</p>
+                                <div class="popup-meta">
+                                    <i class="fas fa-map-marker-alt"></i> 
+                                    ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}
+                                </div>
+                            </div>
+                        </div>
+                    `);
+                cityMarkers.addLayer(marker);
+            });
+            
+            updateStatus("All layers cleared!", "success");
+        }
+
+        // Utility functions
+        function updateStatus(message, type = "") {
+            const indicator = document.getElementById('statusIndicator');
+            indicator.innerHTML = `<i class="fas fa-info-circle"></i><span>${message}</span>`;
+            
+            indicator.className = 'status-indicator';
+            if (type) {
+                indicator.classList.add(type);
+            }
+            
+            if (type === "success") {
+                setTimeout(() => {
+                    updateStatus("Ready to explore");
+                }, 3000);
+            }
+        }
+
+        function showLoading() {
+            document.getElementById('loadingIndicator').style.display = 'block';
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingIndicator').style.display = 'none';
+        }
+
+        // Add some interactive features
+        map.on('click', function(e) {
+            const popup = L.popup()
+                .setLatLng(e.latlng)
+                .setContent(`
+                    <div class="custom-popup">
+                        <div class="popup-header">Map Clicked</div>
+                        <div class="popup-content">
+                            <p>You clicked the map!</p>
+                            <div class="popup-meta">
+                                <i class="fas fa-mouse-pointer"></i> 
+                                ${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}
+                            </div>
+                        </div>
+                    </div>
+                `)
+                .openOn(map);
+        });
+
+        // Add scale control
+        L.control.scale().addTo(map);
+
+        // Welcome message and map check
+        setTimeout(() => {
+            if (map.getContainer()) {
+                updateStatus("Map ready! Click anywhere to explore", "pulse");
+                
+                // Force map resize to ensure proper display
+                setTimeout(() => {
+                    map.invalidateSize();
+                }, 100);
+            } else {
+                updateStatus("Map loading issue detected", "error");
+            }
+        }, 1000);
+
+        // Force map resize on window resize
+        window.addEventListener('resize', function() {
+            if (map) {
+                map.invalidateSize();
+            }
+        });
+
+        // Debug information
+        console.log("Map initialized:", map);
+        console.log("Map container:", map.getContainer());
+        console.log("Leaflet version:", L.version);
+    </script>
+</body>
+</html>

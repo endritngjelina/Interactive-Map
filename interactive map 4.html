@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MapPro - Interactive Mapping Suite</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: #f8f9fa;
+            color: #333;
+            overflow: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+            position: relative;
+        }
+
+        .sidebar {
+            width: 320px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            overflow-y: auto;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar.collapsed {
+            transform: translateX(-280px);
+        }
+
+        .sidebar h1 {
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            font-weight: 600;
+            text-align: center;
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+
+        .tool-section {
+            margin-bottom: 25px;
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+
+        .tool-section h3 {
+            font-size: 1.1em;
+            margin-bottom: 12px;
+            color: #e8f4f8;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            padding-bottom: 8px;
+        }
+
+        .tool-button {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 10px 15px;
+            margin: 5px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+            width: calc(50% - 10px);
+            backdrop-filter: blur(5px);
+        }
+
+        .tool-button:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .tool-button.active {
+            background: rgba(255,255,255,0.4);
+            box-shadow: 0 0 15px rgba(255,255,255,0.3);
+        }
+
+        .input-group {
+            margin: 10px 0;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+            color: #e8f4f8;
+        }
+
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 8px;
+            border: none;
+            border-radius: 5px;
+            background: rgba(255,255,255,0.9);
+            color: #333;
+            font-size: 0.9em;
+        }
+
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+
+        .toggle-sidebar {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1001;
+            background: rgba(255,255,255,0.9);
+            border: none;
+            padding: 12px;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+
+        .toggle-sidebar:hover {
+            background: white;
+            transform: scale(1.1);
+        }
+
+        .status-bar {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(255,255,255,0.95);
+            padding: 10px 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            font-size: 0.9em;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+
+        .coordinates {
+            color: #666;
+            font-family: monospace;
+        }
+
+        .search-container {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .search-input {
+            padding: 12px 15px;
+            border: none;
+            border-radius: 25px;
+            background: rgba(255,255,255,0.95);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            font-size: 0.9em;
+            width: 300px;
+            backdrop-filter: blur(10px);
+        }
+
+        .search-input:focus {
+            outline: none;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        .layer-control {
+            position: absolute;
+            top: 80px;
+            right: 20px;
+            background: rgba(255,255,255,0.95);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+
+        .layer-control h4 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .layer-option {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+        }
+
+        .layer-option input {
+            margin-right: 8px;
+        }
+
+        .popup-content {
+            min-width: 200px;
+        }
+
+        .popup-content h4 {
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .popup-content p {
+            margin: 4px 0;
+            color: #666;
+        }
+
+        .measurement-result {
+            background: rgba(255,255,255,0.95);
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .offline-indicator {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ff6b6b;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            z-index: 1002;
+            display: none;
+        }
+
+        .offline-indicator.show {
+            display: block;
+        }
+
+        .loading-spinner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 50px;
+            height: 50px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            z-index: 1003;
+            display: none;
+        }
+
+        @keyframes spin {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        .weather-widget {
+            background: rgba(255,255,255,0.95);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 10px;
+            backdrop-filter: blur(10px);
+        }
+
+        .weather-widget h4 {
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .weather-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .temperature {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                transform: translateX(-100%);
+            }
+            
+            .sidebar.collapsed {
+                transform: translateX(-100%);
+            }
+            
+            .sidebar:not(.collapsed) {
+                transform: translateX(0);
+            }
+            
+            .search-input {
+                width: 250px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="sidebar" id="sidebar">
+            <h1>🗺️ MapPro</h1>
+            
+            <div class="tool-section">
+                <h3>Navigation Tools</h3>
+                <button class="tool-button" onclick="getCurrentLocation()">📍 My Location</button>
+                <button class="tool-button" onclick="toggleFullscreen()">🔍 Fullscreen</button>
+                <button class="tool-button" onclick="resetView()">🏠 Reset View</button>
+                <button class="tool-button" onclick="toggleSatellite()">🛰️ Satellite</button>
+            </div>
+
+            <div class="tool-section">
+                <h3>Drawing Tools</h3>
+                <button class="tool-button" onclick="enableDrawing('marker')">📌 Add Marker</button>
+                <button class="tool-button" onclick="enableDrawing('polyline')">📏 Draw Route</button>
+                <button class="tool-button" onclick="enableDrawing('polygon')">🔺 Draw Area</button>
+                <button class="tool-button" onclick="enableDrawing('circle')">⭕ Draw Circle</button>
+                <button class="tool-button" onclick="clearDrawings()">🗑️ Clear All</button>
+                <button class="tool-button" onclick="toggleMeasurement()">📐 Measure</button>
+            </div>
+
+            <div class="tool-section">
+                <h3>Data Visualization</h3>
+                <button class="tool-button" onclick="generateHeatmap()">🔥 Heatmap</button>
+                <button class="tool-button" onclick="showTrafficData()">🚦 Traffic</button>
+                <button class="tool-button" onclick="showWeatherData()">🌤️ Weather</button>
+                <button class="tool-button" onclick="showElevationProfile()">⛰️ Elevation</button>
+            </div>
+
+            <div class="tool-section">
+                <h3>Custom Markers</h3>
+                <div class="input-group">
+                    <label>Marker Type:</label>
+                    <select id="markerType">
+                        <option value="default">Default</option>
+                        <option value="restaurant">Restaurant</option>
+                        <option value="hotel">Hotel</option>
+                        <option value="gas">Gas Station</option>
+                        <option value="hospital">Hospital</option>
+                        <option value="school">School</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Marker Title:</label>
+                    <input type="text" id="markerTitle" placeholder="Enter marker title">
+                </div>
+                <div class="input-group">
+                    <label>Description:</label>
+                    <input type="text" id="markerDescription" placeholder="Enter description">
+                </div>
+            </div>
+
+            <div class="tool-section">
+                <h3>Import/Export</h3>
+                <button class="tool-button" onclick="exportData()">💾 Export</button>
+                <button class="tool-button" onclick="importData()">📂 Import</button>
+                <input type="file" id="fileInput" accept=".json,.geojson" style="display: none;">
+            </div>
+
+            <div class="weather-widget" id="weatherWidget" style="display: none;">
+                <h4>Current Weather</h4>
+                <div class="weather-info">
+                    <div>
+                        <div class="temperature" id="temperature">--°</div>
+                        <div id="weatherDesc">Loading...</div>
+                    </div>
+                    <div id="weatherIcon">🌤️</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="map-container">
+            <button class="toggle-sidebar" onclick="toggleSidebar()">☰</button>
+            
+            <div class="search-container">
+                <input type="text" class="search-input" placeholder="Search places..." 
+                       onkeypress="handleSearch(event)" id="searchInput">
+            </div>
+
+            <div class="layer-control">
+                <h4>Map Layers</h4>
+                <div class="layer-option">
+                    <input type="radio" name="baseLayer" value="street" checked onchange="changeBaseLayer('street')">
+                    <label>Street Map</label>
+                </div>
+                <div class="layer-option">
+                    <input type="radio" name="baseLayer" value="satellite" onchange="changeBaseLayer('satellite')">
+                    <label>Satellite</label>
+                </div>
+                <div class="layer-option">
+                    <input type="radio" name="baseLayer" value="terrain" onchange="changeBaseLayer('terrain')">
+                    <label>Terrain</label>
+                </div>
+                <div class="layer-option">
+                    <input type="checkbox" id="trafficLayer" onchange="toggleTrafficLayer()">
+                    <label>Traffic</label>
+                </div>
+            </div>
+
+            <div id="map"></div>
+            
+            <div class="status-bar">
+                <div class="coordinates" id="coordinates">Click on map to see coordinates</div>
+                <div id="measurementResult"></div>
+            </div>
+        </div>
+
+        <div class="offline-indicator" id="offlineIndicator">
+            📡 You're offline - Using cached maps
+        </div>
+
+        <div class="loading-spinner" id="loadingSpinner"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
+    
+    <script>
+        class MapProApp {
+            constructor() {
+                this.map = null;
+                this.drawnItems = new L.FeatureGroup();
+                this.drawControl = null;
+                this.currentBaseLayer = null;
+                this.heatmapLayer = null;
+                this.measurementMode = false;
+                this.measurementPoints = [];
+                this.weatherLayer = null;
+                this.userLocation = null;
+                this.offlineMode = false;
+                
+                this.init();
+                this.setupServiceWorker();
+                this.setupEventListeners();
+            }
+
+            init() {
+                // Initialize map
+                this.map = L.map('map').setView([37.7749, -122.4194], 13);
+                
+                // Add default base layer
+                this.currentBaseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors',
+                    maxZoom: 18
+                }).addTo(this.map);
+
+                // Add drawn items layer
+                this.map.addLayer(this.drawnItems);
+
+                // Setup drawing controls
+                this.setupDrawingControls();
+
+                // Setup map events
+                this.setupMapEvents();
+
+                // Generate sample data
+                this.generateSampleData();
+            }
+
+            setupDrawingControls() {
+                this.drawControl = new L.Control.Draw({
+                    draw: {
+                        position: 'topleft',
+                        polygon: {
+                            allowIntersection: false,
+                            drawError: {
+                                color: '#e1e100',
+                                message: '<strong>Error:</strong> Shape edges cannot cross!'
+                            },
+                            shapeOptions: {
+                                color: '#97009c'
+                            }
+                        },
+                        polyline: {
+                            shapeOptions: {
+                                color: '#f357a1',
+                                weight: 4
+                            }
+                        },
+                        circle: {
+                            shapeOptions: {
+                                color: '#662d91'
+                            }
+                        },
+                        marker: {
+                            icon: this.getCustomIcon('default')
+                        }
+                    },
+                    edit: {
+                        featureGroup: this.drawnItems,
+                        remove: true
+                    }
+                });
+
+                this.map.on('draw:created', (e) => {
+                    const layer = e.layer;
+                    
+                    if (e.layerType === 'marker') {
+                        const title = document.getElementById('markerTitle').value || 'Custom Marker';
+                        const description = document.getElementById('markerDescription').value || 'No description';
+                        
+                        layer.bindPopup(this.createPopupContent(title, description, layer.getLatLng()));
+                    } else if (e.layerType === 'polyline') {
+                        const distance = this.calculateDistance(layer.getLatLngs());
+                        layer.bindPopup(`Route Distance: ${distance.toFixed(2)} km`);
+                    } else if (e.layerType === 'polygon') {
+                        const area = this.calculateArea(layer.getLatLngs()[0]);
+                        layer.bindPopup(`Area: ${area.toFixed(2)} km²`);
+                    }
+                    
+                    this.drawnItems.addLayer(layer);
+                });
+
+                this.map.addControl(this.drawControl);
+            }
+
+            setupMapEvents() {
+                // Mouse move coordinates
+                this.map.on('mousemove', (e) => {
+                    const coords = e.latlng;
+                    document.getElementById('coordinates').textContent = 
+                        `Lat: ${coords.lat.toFixed(5)}, Lng: ${coords.lng.toFixed(5)}`;
+                });
+
+                // Click events for measurement
+                this.map.on('click', (e) => {
+                    if (this.measurementMode) {
+                        this.handleMeasurementClick(e);
+                    }
+                });
+
+                // Zoom end event
+                this.map.on('zoomend', () => {
+                    this.updateWeatherIfVisible();
+                });
+            }
+
+            setupServiceWorker() {
+                if ('serviceWorker' in navigator) {
+                    const swCode = `
+                        const CACHE_NAME = 'mappro-cache-v1';
+                        const urlsToCache = [
+                            '/',
+                            'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css',
+                            'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js',
+                            'https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css',
+                            'https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.min.js',
+                            'https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js'
+                        ];
+
+                        self.addEventListener('install', (event) => {
+                            event.waitUntil(
+                                caches.open(CACHE_NAME)
+                                    .then((cache) => cache.addAll(urlsToCache))
+                            );
+                        });
+
+                        self.addEventListener('fetch', (event) => {
+                            if (event.request.url.includes('tile.openstreetmap.org')) {
+                                event.respondWith(
+                                    caches.match(event.request)
+                                        .then((response) => {
+                                            if (response) {
+                                                return response;
+                                            }
+                                            return fetch(event.request).then((response) => {
+                                                if (!response || response.status !== 200) {
+                                                    return response;
+                                                }
+                                                const responseToCache = response.clone();
+                                                caches.open(CACHE_NAME)
+                                                    .then((cache) => {
+                                                        cache.put(event.request, responseToCache);
+                                                    });
+                                                return response;
+                                            });
+                                        })
+                                );
+                            } else {
+                                event.respondWith(
+                                    caches.match(event.request)
+                                        .then((response) => response || fetch(event.request))
+                                );
+                            }
+                        });
+                    `;
+
+                    const blob = new Blob([swCode], { type: 'application/javascript' });
+                    const swUrl = URL.createObjectURL(blob);
+                    
+                    navigator.serviceWorker.register(swUrl)
+                        .then((registration) => {
+                            console.log('Service Worker registered successfully');
+                        })
+                        .catch((error) => {
+                            console.log('Service Worker registration failed');
+                        });
+                }
+
+                // Online/offline detection
+                window.addEventListener('online', () => {
+                    this.offlineMode = false;
+                    document.getElementById('offlineIndicator').classList.remove('show');
+                });
+
+                window.addEventListener('offline', () => {
+                    this.offlineMode = true;
+                    document.getElementById('offlineIndicator').classList.add('show');
+                });
+            }
+
+            setupEventListeners() {
+                // File input for import
+                document.getElementById('fileInput').addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            try {
+                                const data = JSON.parse(e.target.result);
+                                this.importGeoJSON(data);
+                            } catch (error) {
+                                alert('Invalid file format');
+                            }
+                        };
+                        reader.readAsText(file);
+                    }
+                });
+            }
+
+            generateSampleData() {
+                // Add sample markers
+                const sampleLocations = [
+                    { lat: 37.7849, lng: -122.4094, title: 'Golden Gate Park', type: 'park' },
+                    { lat: 37.7749, lng: -122.4194, title: 'Downtown SF', type: 'city' },
+                    { lat: 37.7649, lng: -122.4294, title: 'Mission District', type: 'food' },
+                    { lat: 37.7949, lng: -122.3994, title: 'Fisherman\'s Wharf', type: 'tourist' }
+                ];
+
+                sampleLocations.forEach(location => {
+                    const marker = L.marker([location.lat, location.lng], {
+                        icon: this.getCustomIcon(location.type)
+                    }).bindPopup(this.createPopupContent(
+                        location.title, 
+                        `Sample location in San Francisco`, 
+                        { lat: location.lat, lng: location.lng }
+                    ));
+                    
+                    this.drawnItems.addLayer(marker);
+                });
+            }
+
+            getCustomIcon(type) {
+                const icons = {
+                    default: '📍',
+                    restaurant: '🍽️',
+                    hotel: '🏨',
+                    gas: '⛽',
+                    hospital: '🏥',
+                    school: '🏫',
+                    park: '🌳',
+                    city: '🏙️',
+                    food: '🍕',
+                    tourist: '🎭'
+                };
+
+                return L.divIcon({
+                    html: `<div style="background: white; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 16px; border: 2px solid #667eea; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">${icons[type] || icons.default}</div>`,
+                    className: 'custom-marker',
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15]
+                });
+            }
+
+            createPopupContent(title, description, latlng) {
+                return `
+                    <div class="popup-content">
+                        <h4>${title}</h4>
+                        <p>${description}</p>
+                        <p><strong>Coordinates:</strong> ${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}</p>
+                        <p><strong>Elevation:</strong> ${this.getElevation(latlng.lat, latlng.lng)}m</p>
+                    </div>
+                `;
+            }
+
+            getElevation(lat, lng) {
+                // Simulate elevation data
+                return Math.floor(Math.random() * 500) + 50;
+            }
+
+            calculateDistance(latlngs) {
+                let totalDistance = 0;
+                for (let i = 0; i < latlngs.length - 1; i++) {
+                    totalDistance += this.map.distance(latlngs[i], latlngs[i + 1]);
+                }
+                return totalDistance / 1000; // Convert to km
+            }
+
+            calculateArea(latlngs) {
+                let area = 0;
+                const n = latlngs.length;
+                for (let i = 0; i < n; i++) {
+                    const j = (i + 1) % n;
+                    area += latlngs[i].lat * latlngs[j].lng;
+                    area -= latlngs[j].lat * latlngs[i].lng;
+                }
+                return Math.abs(area) / 2 * 111.32 * 111.32; // Rough conversion to km²
+            }
+
+            handleMeasurementClick(e) {
+                this.measurementPoints.push(e.latlng);
+                
+                if (this.measurementPoints.length === 1) {
+                    this.startMeasurement = L.marker(e.latlng, {
+                        icon: L.divIcon({
+                            html: '<div style="background: #ff6b6b; border-radius: 50%; width: 10px; height: 10px;"></div>',
+                            iconSize: [10, 10],
+                            iconAnchor: [5, 5]
+                        })
+                    }).addTo(this.map);
+                } else if (this.measurementPoints.length === 2) {
+                    const distance = this.map.distance(this.measurementPoints[0], this.measurementPoints[1]);
+                    
+                    this.endMeasurement = L.marker(e.latlng, {
+                        icon: L.divIcon({
+                            html: '<div style="background: #ff6b6b; border-radius: 50%; width: 10px; height: 10px;"></div>',
+                            iconSize: [10, 10],
+                            iconAnchor: [5, 5]
+                        })
+                    }).addTo(this.map);
+                    
+                    this.measurementLine = L.polyline([this.measurementPoints[0], this.measurementPoints[1]], {
+                        color: '#ff6b6b',
+                        weight: 3,
+                        dashArray: '5, 5'
+                    }).addTo(this.map);
+                    
+                    document.getElementById('measurementResult').innerHTML = 
+                        `<div class="measurement-result">Distance: ${(distance / 1000).toFixed(2)} km</div>`;
+                    
+                    this.measurementMode = false;
+                    this.measurementPoints = [];
+                }
+            }
+
+            generateHeatmap() {
+                // Generate random heat points
+                const heatPoints = [];
+                const center = this.map.getCenter();
+                
+                for (let i = 0; i < 100; i++) {
+                    const lat = center.lat + (Math.random() - 0.5) * 0.1;
+                    const lng = center.lng + (Math.random() - 0.5) * 0.1;
+                    const intensity = Math.random();
+                    heatPoints.push([lat, lng, intensity]);
+                }
+
+                if (this.heatmapLayer) {
+                    this.map.removeLayer(this.heatmapLayer);
+                }
+
+                this.heatmapLayer = L.heatLayer(heatPoints, {
+                    radius: 20,
+                    blur: 25,
+                    maxZoom: 17,
+                    gradient: {
+                        0.0: 'blue',
+                        0.3: 'cyan',
+                        0.5: 'lime',
+                        0.7: 'yellow',
+                        1.0: 'red'
+                    }
+                }).addTo(this.map);
+            }
+
+            async showWeatherData() {
+                const weatherWidget = document.getElementById('weatherWidget');
+                weatherWidget.style.display = 'block';
+                
+                // Simulate weather data
+                const weatherData = {
+                    temperature: Math.floor(Math.random() * 30) + 10,
+                    description: ['Sunny', 'Cloudy', 'Rainy', 'Partly Cloudy'][Math.floor(Math.random() * 4)],
+                    icon: ['☀️', '☁️', '🌧️', '⛅'][Math.floor(Math.random() * 4)]
+                };
+
+                document.getElementById('temperature').textContent = `${weatherData.temperature}°C`;
+                document.getElementById('weatherDesc').textContent = weatherData.description;
+                document.getElementById('weatherIcon').textContent = weatherData.icon;
+            }
+
+            updateWeatherIfVisible() {
+                const weatherWidget = document.getElementById('weatherWidget');
+                if (weatherWidget.style.display === 'block') {
+                    this.showWeatherData();
+                }
+            }
+
+            showElevationProfile() {
+                const center = this.map.getCenter();
+                const elevationData = [];
+                
+                // Generate elevation profile
+                for (let i = 0; i < 20; i++) {
+                    const distance = i * 0.5;
+                    const elevation = Math.sin(i * 0.3) * 200 + 300 + Math.random() * 50;
+                    elevationData.push({ distance, elevation });
+                }
+
+                // Create elevation profile popup
+                const profileHtml = `
+                    <div style="width: 300px; height: 200px; background: #f8f9fa; border-radius: 8px; padding: 15px;">
+                        <h4>Elevation Profile</h4>
+                        <svg width="270" height="120" style="background: white; border-radius: 4px;">
+                            <polyline points="${elevationData.map((d, i) => `${i * 13.5},${120 - (d.elevation - 200) * 0.2}`).join(' ')}" 
+                                     fill="none" stroke="#667eea" stroke-width="2"/>
+                            <text x="10" y="15" font-size="12" fill="#666">Max: ${Math.max(...elevationData.map(d => d.elevation)).toFixed(0)}m</text>
+                            <text x="10" y="110" font-size="12" fill="#666">Distance: ${elevationData[elevationData.length-1].distance}km</text>
+                        </svg>
+                    </div>
+                `;
+
+                L.popup()
+                    .setLatLng(center)
+                    .setContent(profileHtml)
+                    .openOn(this.map);
+            }
+
+            exportData() {
+                const data = {
+                    type: "FeatureCollection",
+                    features: []
+                };
+
+                this.drawnItems.eachLayer((layer) => {
+                    if (layer instanceof L.Marker) {
+                        data.features.push({
+                            type: "Feature",
+                            geometry: {
+                                type: "Point",
+                                coordinates: [layer.getLatLng().lng, layer.getLatLng().lat]
+                            },
+                            properties: {
+                                title: layer.getPopup() ? layer.getPopup().getContent() : 'Marker'
+                            }
+                        });
+                    } else if (layer instanceof L.Polyline) {
+                        data.features.push({
+                            type: "Feature",
+                            geometry: {
+                                type: "LineString",
+                                coordinates: layer.getLatLngs().map(ll => [ll.lng, ll.lat])
+                            },
+                            properties: {}
+                        });
+                    } else if (layer instanceof L.Polygon) {
+                        data.features.push({
+                            type: "Feature",
+                            geometry: {
+                                type: "Polygon",
+                                coordinates: [layer.getLatLngs()[0].map(ll => [ll.lng, ll.lat])]
+                            },
+                            properties: {}
+                        });
+                    }
+                });
+
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'mappro_export.geojson';
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+
+            importData() {
+                document.getElementById('fileInput').click();
+            }
+
+            importGeoJSON(data) {
+                if (data.type === 'FeatureCollection') {
+                    data.features.forEach(feature => {
+                        if (feature.geometry.type === 'Point') {
+                            const [lng, lat] = feature.geometry.coordinates;
+                            const marker = L.marker([lat, lng], {
+                                icon: this.getCustomIcon('default')
+                            }).bindPopup(feature.properties.title || 'Imported Marker');
+                            this.drawnItems.addLayer(marker);
+                        } else if (feature.geometry.type === 'LineString') {
+                            const latlngs = feature.geometry.coordinates.map(coord => [coord[1], coord[0]]);
+                            const polyline = L.polyline(latlngs, { color: '#667eea', weight: 3 });
+                            this.drawnItems.addLayer(polyline);
+                        } else if (feature.geometry.type === 'Polygon') {
+                            const latlngs = feature.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
+                            const polygon = L.polygon(latlngs, { color: '#667eea', fillOpacity: 0.3 });
+                            this.drawnItems.addLayer(polygon);
+                        }
+                    });
+                }
+            }
+
+            async searchLocation(query) {
+                this.showLoading();
+                
+                try {
+                    // Simulate geocoding API call
+                    const mockResults = [
+                        { name: 'San Francisco, CA', lat: 37.7749, lng: -122.4194 },
+                        { name: 'New York, NY', lat: 40.7128, lng: -74.0060 },
+                        { name: 'London, UK', lat: 51.5074, lng: -0.1278 },
+                        { name: 'Tokyo, Japan', lat: 35.6762, lng: 139.6503 },
+                        { name: 'Sydney, Australia', lat: -33.8688, lng: 151.2093 }
+                    ];
+
+                    const result = mockResults.find(r => 
+                        r.name.toLowerCase().includes(query.toLowerCase())
+                    ) || mockResults[0];
+
+                    this.map.setView([result.lat, result.lng], 13);
+                    
+                    const searchMarker = L.marker([result.lat, result.lng], {
+                        icon: this.getCustomIcon('default')
+                    }).bindPopup(`
+                        <div class="popup-content">
+                            <h4>🔍 Search Result</h4>
+                            <p><strong>${result.name}</strong></p>
+                            <p>Coordinates: ${result.lat.toFixed(5)}, ${result.lng.toFixed(5)}</p>
+                        </div>
+                    `).addTo(this.map);
+
+                    setTimeout(() => {
+                        this.map.removeLayer(searchMarker);
+                    }, 5000);
+
+                } catch (error) {
+                    console.error('Search failed:', error);
+                } finally {
+                    this.hideLoading();
+                }
+            }
+
+            showLoading() {
+                document.getElementById('loadingSpinner').style.display = 'block';
+            }
+
+            hideLoading() {
+                document.getElementById('loadingSpinner').style.display = 'none';
+            }
+        }
+
+        // Global functions for UI interactions
+        let mapApp;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            mapApp = new MapProApp();
+        });
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('collapsed');
+        }
+
+        function getCurrentLocation() {
+            mapApp.showLoading();
+            
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        
+                        mapApp.map.setView([lat, lng], 16);
+                        mapApp.userLocation = [lat, lng];
+                        
+                        const locationMarker = L.marker([lat, lng], {
+                            icon: L.divIcon({
+                                html: '<div style="background: #4285f4; border-radius: 50%; width: 20px; height: 20px; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>',
+                                iconSize: [20, 20],
+                                iconAnchor: [10, 10]
+                            })
+                        }).bindPopup('📍 Your Location').addTo(mapApp.map);
+                        
+                        mapApp.hideLoading();
+                    },
+                    (error) => {
+                        alert('Could not get your location');
+                        mapApp.hideLoading();
+                    }
+                );
+            } else {
+                alert('Geolocation not supported');
+                mapApp.hideLoading();
+            }
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        function resetView() {
+            mapApp.map.setView([37.7749, -122.4194], 13);
+        }
+
+        function toggleSatellite() {
+            changeBaseLayer('satellite');
+        }
+
+        function enableDrawing(type) {
+            document.querySelectorAll('.tool-button').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            const handlers = {
+                marker: new L.Draw.Marker(mapApp.map, {
+                    icon: mapApp.getCustomIcon(document.getElementById('markerType').value)
+                }),
+                polyline: new L.Draw.Polyline(mapApp.map),
+                polygon: new L.Draw.Polygon(mapApp.map),
+                circle: new L.Draw.Circle(mapApp.map)
+            };
+
+            if (handlers[type]) {
+                handlers[type].enable();
+            }
+        }
+
+        function clearDrawings() {
+            mapApp.drawnItems.clearLayers();
+            if (mapApp.heatmapLayer) {
+                mapApp.map.removeLayer(mapApp.heatmapLayer);
+            }
+            if (mapApp.startMeasurement) {
+                mapApp.map.removeLayer(mapApp.startMeasurement);
+            }
+            if (mapApp.endMeasurement) {
+                mapApp.map.removeLayer(mapApp.endMeasurement);
+            }
+            if (mapApp.measurementLine) {
+                mapApp.map.removeLayer(mapApp.measurementLine);
+            }
+            document.getElementById('measurementResult').innerHTML = '';
+        }
+
+        function toggleMeasurement() {
+            mapApp.measurementMode = !mapApp.measurementMode;
+            mapApp.measurementPoints = [];
+            
+            if (mapApp.measurementMode) {
+                event.target.classList.add('active');
+                mapApp.map.getContainer().style.cursor = 'crosshair';
+            } else {
+                event.target.classList.remove('active');
+                mapApp.map.getContainer().style.cursor = '';
+            }
+        }
+
+        function generateHeatmap() {
+            mapApp.generateHeatmap();
+        }
+
+        function showTrafficData() {
+            // Simulate traffic data with colored polylines
+            const center = mapApp.map.getCenter();
+            const trafficRoutes = [
+                { path: [[center.lat + 0.01, center.lng], [center.lat + 0.02, center.lng + 0.01]], color: 'red', speed: 'Heavy Traffic' },
+                { path: [[center.lat - 0.01, center.lng], [center.lat - 0.02, center.lng - 0.01]], color: 'yellow', speed: 'Moderate Traffic' },
+                { path: [[center.lat, center.lng + 0.01], [center.lat + 0.01, center.lng + 0.02]], color: 'green', speed: 'Light Traffic' }
+            ];
+
+            trafficRoutes.forEach(route => {
+                L.polyline(route.path, {
+                    color: route.color,
+                    weight: 6,
+                    opacity: 0.8
+                }).bindPopup(`Traffic Status: ${route.speed}`).addTo(mapApp.map);
+            });
+        }
+
+        function showWeatherData() {
+            mapApp.showWeatherData();
+        }
+
+        function showElevationProfile() {
+            mapApp.showElevationProfile();
+        }
+
+        function exportData() {
+            mapApp.exportData();
+        }
+
+        function importData() {
+            mapApp.importData();
+        }
+
+        function handleSearch(event) {
+            if (event.key === 'Enter') {
+                const query = event.target.value.trim();
+                if (query) {
+                    mapApp.searchLocation(query);
+                }
+            }
+        }
+
+        function changeBaseLayer(layerType) {
+            if (mapApp.currentBaseLayer) {
+                mapApp.map.removeLayer(mapApp.currentBaseLayer);
+            }
+
+            const layers = {
+                street: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors'
+                }),
+                satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                    attribution: '© Esri'
+                }),
+                terrain: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenTopoMap contributors'
+                })
+            };
+
+            mapApp.currentBaseLayer = layers[layerType];
+            mapApp.currentBaseLayer.addTo(mapApp.map);
+        }
+
+        function toggleTrafficLayer() {
+            const checkbox = document.getElementById('trafficLayer');
+            if (checkbox.checked) {
+                showTrafficData();
+            } else {
+                // Remove traffic layers (simplified)
+                mapApp.map.eachLayer(layer => {
+                    if (layer instanceof L.Polyline && layer.options.weight === 6) {
+                        mapApp.map.removeLayer(layer);
+                    }
+                });
+            }
+        }
+    </script>
+</body>
+</html>

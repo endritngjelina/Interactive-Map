@@ -1,0 +1,1381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional Interactive Map Application</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/2.4.0/maplibre-gl.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/2.4.0/maplibre-gl.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/turf/6.5.0/turf.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f8f9fa;
+            color: #333;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .sidebar {
+            width: 320px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-right: 1px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            background: linear-gradient(135deg, #0078d4 0%, #106ebe 100%);
+            color: white;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .sidebar-header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .sidebar-header p {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .tool-section {
+            padding: 15px 20px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .tool-section h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #0078d4;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tool-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .tool-btn {
+            padding: 12px 8px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            font-size: 0.85rem;
+            font-weight: 500;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .tool-btn:hover {
+            border-color: #0078d4;
+            background: #f3f9ff;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 120, 212, 0.15);
+        }
+
+        .tool-btn.active {
+            background: #0078d4;
+            color: white;
+            border-color: #0078d4;
+        }
+
+        .tool-btn i {
+            font-size: 1.2rem;
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .input-group input:focus, .input-group select:focus {
+            outline: none;
+            border-color: #0078d4;
+        }
+
+        .coordinates-display {
+            background: rgba(0, 120, 212, 0.1);
+            padding: 10px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            margin-top: 10px;
+        }
+
+        .stats-panel {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+
+        .stat-value {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #0078d4;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        .map-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .map-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .control-btn {
+            background: white;
+            border: none;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: block;
+            width: 48px;
+            height: 48px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            transition: all 0.3s ease;
+            font-size: 1.1rem;
+            color: #333;
+        }
+
+        .control-btn:hover {
+            background: #0078d4;
+            color: white;
+            transform: scale(1.1);
+        }
+
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .loading-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #0078d4;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .popup-content {
+            padding: 10px;
+            max-width: 200px;
+        }
+
+        .popup-content h4 {
+            margin-bottom: 8px;
+            color: #0078d4;
+        }
+
+        .popup-content p {
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            background: #0078d4;
+            color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 3000;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.3s ease;
+        }
+
+        .notification.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .notification.error {
+            background: #d13438;
+        }
+
+        .notification.success {
+            background: #107c10;
+        }
+
+        .layer-control {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .layer-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .layer-item:last-child {
+            border-bottom: none;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #0078d4;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 280px;
+            }
+            
+            .tool-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h1><i class="fas fa-map-marked-alt"></i> MapPro</h1>
+                <p>Professional Mapping Solution</p>
+            </div>
+
+            <div class="tool-section">
+                <h3><i class="fas fa-tools"></i> Tools</h3>
+                <div class="tool-grid">
+                    <div class="tool-btn" data-tool="marker">
+                        <i class="fas fa-map-pin"></i>
+                        <span>Add Marker</span>
+                    </div>
+                    <div class="tool-btn" data-tool="route">
+                        <i class="fas fa-route"></i>
+                        <span>Draw Route</span>
+                    </div>
+                    <div class="tool-btn" data-tool="measure">
+                        <i class="fas fa-ruler"></i>
+                        <span>Measure</span>
+                    </div>
+                    <div class="tool-btn" data-tool="polygon">
+                        <i class="fas fa-draw-polygon"></i>
+                        <span>Draw Area</span>
+                    </div>
+                    <div class="tool-btn" data-tool="heatmap">
+                        <i class="fas fa-fire"></i>
+                        <span>Heatmap</span>
+                    </div>
+                    <div class="tool-btn" data-tool="geolocation">
+                        <i class="fas fa-location-arrow"></i>
+                        <span>My Location</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tool-section">
+                <h3><i class="fas fa-layer-group"></i> Layers</h3>
+                <div class="layer-control">
+                    <div class="layer-item">
+                        <span>Satellite</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="satellite-toggle">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="layer-item">
+                        <span>Traffic</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="traffic-toggle">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="layer-item">
+                        <span>Weather</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="weather-toggle">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tool-section">
+                <h3><i class="fas fa-search"></i> Search</h3>
+                <div class="input-group">
+                    <input type="text" id="search-input" placeholder="Search location...">
+                </div>
+                <div class="tool-btn full-width" onclick="searchLocation()">
+                    <i class="fas fa-search"></i>
+                    <span>Search</span>
+                </div>
+            </div>
+
+            <div class="tool-section">
+                <h3><i class="fas fa-crosshairs"></i> Coordinates</h3>
+                <div class="coordinates-display" id="coordinates">
+                    Lat: 40.7128<br>
+                    Lng: -74.0060
+                </div>
+            </div>
+
+            <div class="stats-panel">
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-value" id="marker-count">0</div>
+                        <div class="stat-label">Markers</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="route-distance">0 km</div>
+                        <div class="stat-label">Total Distance</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="area-size">0 km²</div>
+                        <div class="stat-label">Area</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="zoom-level">10</div>
+                        <div class="stat-label">Zoom Level</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="map-container">
+            <div id="map"></div>
+            <div class="map-controls">
+                <button class="control-btn" onclick="toggleFullscreen()" title="Toggle Fullscreen">
+                    <i class="fas fa-expand"></i>
+                </button>
+                <button class="control-btn" onclick="takeScreenshot()" title="Take Screenshot">
+                    <i class="fas fa-camera"></i>
+                </button>
+                <button class="control-btn" onclick="exportData()" title="Export Data">
+                    <i class="fas fa-download"></i>
+                </button>
+                <button class="control-btn" onclick="clearAll()" title="Clear All">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+            <div class="loading-overlay" id="loading">
+                <div class="spinner"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let map;
+        let currentTool = null;
+        let markers = [];
+        let routes = [];
+        let polygons = [];
+        let heatmapData = [];
+        let measurementLine = null;
+        let drawingRoute = false;
+        let routeCoordinates = [];
+        let measurementCoordinates = [];
+        let drawingPolygon = false;
+        let polygonCoordinates = [];
+
+        // Initialize map
+        function initMap() {
+            map = new maplibregl.Map({
+                container: 'map',
+                style: 'https://demotiles.maplibre.org/style.json',
+                center: [-74.0060, 40.7128],
+                zoom: 10,
+                pitch: 0,
+                bearing: 0
+            });
+
+            // Add controls
+            map.addControl(new maplibregl.NavigationControl(), 'top-right');
+            map.addControl(new maplibregl.ScaleControl(), 'bottom-left');
+            map.addControl(new maplibregl.FullscreenControl(), 'top-right');
+
+            // Event listeners
+            map.on('load', onMapLoad);
+            map.on('click', onMapClick);
+            map.on('mousemove', onMapMouseMove);
+            map.on('zoom', updateZoomLevel);
+            map.on('moveend', updateCoordinates);
+
+            // Initialize coordinates display
+            updateCoordinates();
+        }
+
+        function onMapLoad() {
+            // Add sources and layers for drawing
+            map.addSource('route-source', {
+                type: 'geojson',
+                data: {
+                    type: 'Feature',
+                    geometry: {
+                        type: 'LineString',
+                        coordinates: []
+                    }
+                }
+            });
+
+            map.addLayer({
+                id: 'route-layer',
+                type: 'line',
+                source: 'route-source',
+                layout: {
+                    'line-join': 'round',
+                    'line-cap': 'round'
+                },
+                paint: {
+                    'line-color': '#0078d4',
+                    'line-width': 4
+                }
+            });
+
+            map.addSource('measurement-source', {
+                type: 'geojson',
+                data: {
+                    type: 'Feature',
+                    geometry: {
+                        type: 'LineString',
+                        coordinates: []
+                    }
+                }
+            });
+
+            map.addLayer({
+                id: 'measurement-layer',
+                type: 'line',
+                source: 'measurement-source',
+                paint: {
+                    'line-color': '#ff6b6b',
+                    'line-width': 3,
+                    'line-dasharray': [2, 2]
+                }
+            });
+
+            map.addSource('polygon-source', {
+                type: 'geojson',
+                data: {
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Polygon',
+                        coordinates: [[]]
+                    }
+                }
+            });
+
+            map.addLayer({
+                id: 'polygon-layer',
+                type: 'fill',
+                source: 'polygon-source',
+                paint: {
+                    'fill-color': '#0078d4',
+                    'fill-opacity': 0.3
+                }
+            });
+
+            map.addLayer({
+                id: 'polygon-outline',
+                type: 'line',
+                source: 'polygon-source',
+                paint: {
+                    'line-color': '#0078d4',
+                    'line-width': 2
+                }
+            });
+
+            // Add heatmap layer
+            map.addSource('heatmap-source', {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: []
+                }
+            });
+
+            map.addLayer({
+                id: 'heatmap-layer',
+                type: 'heatmap',
+                source: 'heatmap-source',
+                paint: {
+                    'heatmap-weight': 1,
+                    'heatmap-intensity': 1,
+                    'heatmap-color': [
+                        'interpolate',
+                        ['linear'],
+                        ['heatmap-density'],
+                        0, 'rgba(0, 0, 255, 0)',
+                        0.2, 'rgb(0, 0, 255)',
+                        0.4, 'rgb(0, 255, 255)',
+                        0.6, 'rgb(0, 255, 0)',
+                        0.8, 'rgb(255, 255, 0)',
+                        1, 'rgb(255, 0, 0)'
+                    ],
+                    'heatmap-radius': 20
+                }
+            });
+
+            // Add weather layer (simulated)
+            map.addSource('weather-source', {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: []
+                }
+            });
+
+            showNotification('Map loaded successfully!', 'success');
+        }
+
+        function onMapClick(e) {
+            const coords = [e.lngLat.lng, e.lngLat.lat];
+            
+            switch(currentTool) {
+                case 'marker':
+                    addMarker(coords);
+                    break;
+                case 'route':
+                    addRoutePoint(coords);
+                    break;
+                case 'measure':
+                    addMeasurementPoint(coords);
+                    break;
+                case 'polygon':
+                    addPolygonPoint(coords);
+                    break;
+                case 'heatmap':
+                    addHeatmapPoint(coords);
+                    break;
+            }
+        }
+
+        function onMapMouseMove(e) {
+            updateCoordinates(e.lngLat);
+        }
+
+        function updateCoordinates(lngLat) {
+            const coords = lngLat || map.getCenter();
+            document.getElementById('coordinates').innerHTML = `
+                Lat: ${coords.lat.toFixed(6)}<br>
+                Lng: ${coords.lng.toFixed(6)}
+            `;
+        }
+
+        function updateZoomLevel() {
+            document.getElementById('zoom-level').textContent = Math.round(map.getZoom());
+        }
+
+        // Tool functions
+        function selectTool(tool) {
+            // Reset previous tool
+            if (currentTool) {
+                document.querySelector(`[data-tool="${currentTool}"]`).classList.remove('active');
+            }
+            
+            // Finish current drawing operations
+            if (drawingRoute) finishRoute();
+            if (drawingPolygon) finishPolygon();
+            
+            currentTool = tool;
+            document.querySelector(`[data-tool="${tool}"]`).classList.add('active');
+            
+            // Change cursor
+            map.getCanvas().style.cursor = tool === 'marker' ? 'crosshair' : 'pointer';
+        }
+
+        function addMarker(coords) {
+            const marker = new maplibregl.Marker({
+                color: '#0078d4',
+                scale: 1.2
+            })
+            .setLngLat(coords)
+            .setPopup(new maplibregl.Popup().setHTML(`
+                <div class="popup-content">
+                    <h4>Custom Marker</h4>
+                    <p><strong>Coordinates:</strong></p>
+                    <p>Lat: ${coords[1].toFixed(6)}</p>
+                    <p>Lng: ${coords[0].toFixed(6)}</p>
+                    <p><strong>Added:</strong> ${new Date().toLocaleString()}</p>
+                </div>
+            `))
+            .addTo(map);
+
+            markers.push(marker);
+            updateStats();
+            showNotification('Marker added successfully!', 'success');
+        }
+
+        function addRoutePoint(coords) {
+            if (!drawingRoute) {
+                drawingRoute = true;
+                routeCoordinates = [coords];
+                showNotification('Route started! Click to add points, double-click to finish.', 'info');
+            } else {
+                routeCoordinates.push(coords);
+            }
+            
+            updateRouteDisplay();
+        }
+
+        function finishRoute() {
+            if (routeCoordinates.length > 1) {
+                const distance = calculateDistance(routeCoordinates);
+                routes.push({
+                    coordinates: [...routeCoordinates],
+                    distance: distance
+                });
+                
+                showNotification(`Route completed! Distance: ${distance.toFixed(2)} km`, 'success');
+            }
+            
+            drawingRoute = false;
+            routeCoordinates = [];
+            updateStats();
+        }
+
+        function updateRouteDisplay() {
+            map.getSource('route-source').setData({
+                type: 'Feature',
+                geometry: {
+                    type: 'LineString',
+                    coordinates: routeCoordinates
+                }
+            });
+        }
+
+        function addMeasurementPoint(coords) {
+            measurementCoordinates.push(coords);
+            
+            if (measurementCoordinates.length === 1) {
+                showNotification('Click another point to measure distance', 'info');
+            } else if (measurementCoordinates.length === 2) {
+                const distance = turf.distance(
+                    turf.point(measurementCoordinates[0]),
+                    turf.point(measurementCoordinates[1])
+                );
+                
+                showNotification(`Distance: ${distance.toFixed(2)} km`, 'success');
+                measurementCoordinates = [];
+            }
+            
+            updateMeasurementDisplay();
+        }
+
+        function updateMeasurementDisplay() {
+            map.getSource('measurement-source').setData({
+                type: 'Feature',
+                geometry: {
+                    type: 'LineString',
+                    coordinates: measurementCoordinates
+                }
+            });
+        }
+
+        function addPolygonPoint(coords) {
+            if (!drawingPolygon) {
+                drawingPolygon = true;
+                polygonCoordinates = [coords];
+                showNotification('Polygon started! Click to add points, double-click to finish.', 'info');
+            } else {
+                polygonCoordinates.push(coords);
+            }
+            
+            updatePolygonDisplay();
+        }
+
+        function finishPolygon() {
+            if (polygonCoordinates.length > 2) {
+                // Close the polygon
+                polygonCoordinates.push(polygonCoordinates[0]);
+                
+                const area = turf.area(turf.polygon([polygonCoordinates])) / 1000000; // Convert to km²
+                polygons.push({
+                    coordinates: [...polygonCoordinates],
+                    area: area
+                });
+                
+                showNotification(`Polygon completed! Area: ${area.toFixed(2)} km²`, 'success');
+            }
+            
+            drawingPolygon = false;
+            polygonCoordinates = [];
+            updateStats();
+        }
+
+        function updatePolygonDisplay() {
+            if (polygonCoordinates.length > 2) {
+                const closedCoords = [...polygonCoordinates, polygonCoordinates[0]];
+                map.getSource('polygon-source').setData({
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Polygon',
+                        coordinates: [closedCoords]
+                    }
+                });
+            }
+        }
+
+        function addHeatmapPoint(coords) {
+            heatmapData.push({
+                type: 'Feature',
+                geometry: {
+                    type: 'Point',
+                    coordinates: coords
+                },
+                properties: {
+                    weight: Math.random() * 10
+                }
+            });
+            
+            updateHeatmapDisplay();
+            showNotification('Heatmap point added!', 'success');
+        }
+
+        function updateHeatmapDisplay() {
+            map.getSource('heatmap-source').setData({
+                type: 'FeatureCollection',
+                features: heatmapData
+            });
+        }
+
+        function getCurrentLocation() {
+            if (navigator.geolocation) {
+                showLoading(true);
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const coords = [position.coords.longitude, position.coords.latitude];
+                        map.flyTo({
+                            center: coords,
+                            zoom: 15,
+                            duration: 2000
+                        });
+                        
+                        addMarker(coords);
+                        showLoading(false);
+                        showNotification('Location found!', 'success');
+                    },
+                    (error) => {
+                        showLoading(false);
+                        showNotification('Unable to get location', 'error');
+                    }
+                );
+            } else {
+                showNotification('Geolocation not supported', 'error');
+            }
+        }
+
+        function searchLocation() {
+            const query = document.getElementById('search-input').value;
+            if (!query) return;
+            
+            showLoading(true);
+            
+            // Simulate geocoding (in real app, use a geocoding service)
+            setTimeout(() => {
+                const mockResults = [
+                    { name: 'New York', coords: [-74.0060, 40.7128] },
+                    { name: 'London', coords: [-0.1278, 51.5074] },
+                    { name: 'Tokyo', coords: [139.6917, 35.6895] },
+                    { name: 'Paris', coords: [2.3522, 48.8566] }
+                ];
+                
+                const result = mockResults.find(r => 
+                    r.name.toLowerCase().includes(query.toLowerCase())
+                );
+                
+                if (result) {
+                    map.flyTo({
+                        center: result.coords,
+                        zoom: 12,
+                        duration: 2000
+                    });
+                    addMarker(result.coords);
+                    showNotification(`Found: ${result.name}`, 'success');
+                } else {
+                    showNotification('Location not found', 'error');
+                }
+                
+                showLoading(false);
+            }, 1000);
+        }
+
+        function calculateDistance(coordinates) {
+            let total = 0;
+            for (let i = 0; i < coordinates.length - 1; i++) {
+                total += turf.distance(
+                    turf.point(coordinates[i]),
+                    turf.point(coordinates[i + 1])
+                );
+            }
+            return total;
+        }
+
+        function updateStats() {
+            document.getElementById('marker-count').textContent = markers.length;
+            
+            const totalDistance = routes.reduce((sum, route) => sum + route.distance, 0);
+            document.getElementById('route-distance').textContent = `${totalDistance.toFixed(2)} km`;
+            
+            const totalArea = polygons.reduce((sum, polygon) => sum + polygon.area, 0);
+            document.getElementById('area-size').textContent = `${totalArea.toFixed(2)} km²`;
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        function takeScreenshot() {
+            showLoading(true);
+            
+            // Simulate screenshot functionality
+            setTimeout(() => {
+                const canvas = map.getCanvas();
+                const dataURL = canvas.toDataURL('image/png');
+                
+                const link = document.createElement('a');
+                link.download = `map-screenshot-${Date.now()}.png`;
+                link.href = dataURL;
+                link.click();
+                
+                showLoading(false);
+                showNotification('Screenshot saved!', 'success');
+            }, 1000);
+        }
+
+        function exportData() {
+            const data = {
+                markers: markers.map(m => ({
+                    coordinates: [m.getLngLat().lng, m.getLngLat().lat],
+                    timestamp: new Date().toISOString()
+                })),
+                routes: routes,
+                polygons: polygons,
+                heatmapData: heatmapData,
+                mapCenter: map.getCenter(),
+                mapZoom: map.getZoom()
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.download = `map-data-${Date.now()}.json`;
+            link.href = url;
+            link.click();
+            
+            URL.revokeObjectURL(url);
+            showNotification('Data exported successfully!', 'success');
+        }
+
+        function clearAll() {
+            if (confirm('Are you sure you want to clear all data?')) {
+                // Clear markers
+                markers.forEach(marker => marker.remove());
+                markers = [];
+                
+                // Clear routes
+                routes = [];
+                routeCoordinates = [];
+                drawingRoute = false;
+                map.getSource('route-source').setData({
+                    type: 'Feature',
+                    geometry: { type: 'LineString', coordinates: [] }
+                });
+                
+                // Clear polygons
+                polygons = [];
+                polygonCoordinates = [];
+                drawingPolygon = false;
+                map.getSource('polygon-source').setData({
+                    type: 'Feature',
+                    geometry: { type: 'Polygon', coordinates: [[]] }
+                });
+                
+                // Clear heatmap
+                heatmapData = [];
+                map.getSource('heatmap-source').setData({
+                    type: 'FeatureCollection',
+                    features: []
+                });
+                
+                // Clear measurements
+                measurementCoordinates = [];
+                map.getSource('measurement-source').setData({
+                    type: 'Feature',
+                    geometry: { type: 'LineString', coordinates: [] }
+                });
+                
+                updateStats();
+                showNotification('All data cleared!', 'success');
+            }
+        }
+
+        function showLoading(show) {
+            const loading = document.getElementById('loading');
+            if (show) {
+                loading.classList.add('active');
+            } else {
+                loading.classList.remove('active');
+            }
+        }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.classList.add('show');
+            }, 100);
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+
+        function toggleLayer(layerId) {
+            const visibility = map.getLayoutProperty(layerId, 'visibility');
+            if (visibility === 'visible') {
+                map.setLayoutProperty(layerId, 'visibility', 'none');
+            } else {
+                map.setLayoutProperty(layerId, 'visibility', 'visible');
+            }
+        }
+
+        function simulateWeatherData() {
+            const weatherPoints = [];
+            const bounds = map.getBounds();
+            
+            for (let i = 0; i < 20; i++) {
+                const lat = bounds.getSouth() + (bounds.getNorth() - bounds.getSouth()) * Math.random();
+                const lng = bounds.getWest() + (bounds.getEast() - bounds.getWest()) * Math.random();
+                
+                weatherPoints.push({
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Point',
+                        coordinates: [lng, lat]
+                    },
+                    properties: {
+                        temperature: Math.round(Math.random() * 40 - 10),
+                        humidity: Math.round(Math.random() * 100),
+                        windSpeed: Math.round(Math.random() * 30)
+                    }
+                });
+            }
+            
+            map.getSource('weather-source').setData({
+                type: 'FeatureCollection',
+                features: weatherPoints
+            });
+        }
+
+        // Service Worker for offline functionality
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').then((registration) => {
+                    console.log('SW registered: ', registration);
+                }).catch((registrationError) => {
+                    console.log('SW registration failed: ', registrationError);
+                });
+            });
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            initMap();
+            
+            // Tool selection
+            document.querySelectorAll('.tool-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const tool = btn.dataset.tool;
+                    if (tool === 'geolocation') {
+                        getCurrentLocation();
+                    } else {
+                        selectTool(tool);
+                    }
+                });
+            });
+            
+            // Layer toggles
+            document.getElementById('satellite-toggle').addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    map.setStyle('https://api.maptiler.com/maps/satellite/style.json?key=demo');
+                } else {
+                    map.setStyle('https://demotiles.maplibre.org/style.json');
+                }
+            });
+            
+            document.getElementById('traffic-toggle').addEventListener('change', (e) => {
+                // Simulate traffic layer toggle
+                if (e.target.checked) {
+                    showNotification('Traffic layer enabled', 'info');
+                } else {
+                    showNotification('Traffic layer disabled', 'info');
+                }
+            });
+            
+            document.getElementById('weather-toggle').addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    simulateWeatherData();
+                    showNotification('Weather data loaded', 'info');
+                } else {
+                    map.getSource('weather-source').setData({
+                        type: 'FeatureCollection',
+                        features: []
+                    });
+                    showNotification('Weather data cleared', 'info');
+                }
+            });
+            
+            // Search on Enter
+            document.getElementById('search-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    searchLocation();
+                }
+            });
+            
+            // Double-click to finish drawing
+            map.on('dblclick', (e) => {
+                e.preventDefault();
+                if (drawingRoute) {
+                    finishRoute();
+                } else if (drawingPolygon) {
+                    finishPolygon();
+                }
+            });
+            
+            // Keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                if (e.ctrlKey || e.metaKey) {
+                    switch(e.key) {
+                        case 's':
+                            e.preventDefault();
+                            takeScreenshot();
+                            break;
+                        case 'e':
+                            e.preventDefault();
+                            exportData();
+                            break;
+                        case 'l':
+                            e.preventDefault();
+                            getCurrentLocation();
+                            break;
+                        case 'Delete':
+                        case 'Backspace':
+                            e.preventDefault();
+                            clearAll();
+                            break;
+                    }
+                }
+                
+                // Escape to cancel current tool
+                if (e.key === 'Escape') {
+                    currentTool = null;
+                    document.querySelectorAll('.tool-btn').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    map.getCanvas().style.cursor = 'grab';
+                }
+            });
+            
+            // Context menu for advanced features
+            map.on('contextmenu', (e) => {
+                e.preventDefault();
+                const coords = [e.lngLat.lng, e.lngLat.lat];
+                
+                // Create context menu
+                const menu = document.createElement('div');
+                menu.style.cssText = `
+                    position: fixed;
+                    top: ${e.point.y}px;
+                    left: ${e.point.x}px;
+                    background: white;
+                    border: 1px solid #ddd;
+                    border-radius: 4px;
+                    padding: 8px 0;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                    z-index: 1000;
+                    min-width: 150px;
+                `;
+                
+                const menuItems = [
+                    { text: 'Add Marker Here', action: () => addMarker(coords) },
+                    { text: 'Center Map Here', action: () => map.flyTo({ center: coords }) },
+                    { text: 'Get Coordinates', action: () => {
+                        navigator.clipboard.writeText(`${coords[1].toFixed(6)}, ${coords[0].toFixed(6)}`);
+                        showNotification('Coordinates copied!', 'success');
+                    }}
+                ];
+                
+                menuItems.forEach(item => {
+                    const menuItem = document.createElement('div');
+                    menuItem.textContent = item.text;
+                    menuItem.style.cssText = `
+                        padding: 8px 16px;
+                        cursor: pointer;
+                        border-bottom: 1px solid #f0f0f0;
+                    `;
+                    menuItem.addEventListener('click', () => {
+                        item.action();
+                        document.body.removeChild(menu);
+                    });
+                    menuItem.addEventListener('mouseenter', () => {
+                        menuItem.style.backgroundColor = '#f0f0f0';
+                    });
+                    menuItem.addEventListener('mouseleave', () => {
+                        menuItem.style.backgroundColor = 'white';
+                    });
+                    menu.appendChild(menuItem);
+                });
+                
+                document.body.appendChild(menu);
+                
+                // Remove menu on click elsewhere
+                const removeMenu = () => {
+                    if (document.body.contains(menu)) {
+                        document.body.removeChild(menu);
+                    }
+                    document.removeEventListener('click', removeMenu);
+                };
+                
+                setTimeout(() => {
+                    document.addEventListener('click', removeMenu);
+                }, 100);
+            });
+        });
+
+        // Performance monitoring
+        const performanceObserver = new PerformanceObserver((list) => {
+            const entries = list.getEntries();
+            entries.forEach((entry) => {
+                if (entry.entryType === 'measure') {
+                    console.log(`${entry.name}: ${entry.duration.toFixed(2)}ms`);
+                }
+            });
+        });
+
+        performanceObserver.observe({ entryTypes: ['measure'] });
+
+        // Analytics tracking (simulated)
+        function trackEvent(action, category = 'map') {
+            console.log(`Analytics: ${category} - ${action}`);
+            // In real app, send to analytics service
+        }
+
+        // Auto-save functionality
+        function autoSave() {
+            const data = {
+                markers: markers.map(m => ({
+                    coordinates: [m.getLngLat().lng, m.getLngLat().lat]
+                })),
+                routes: routes,
+                polygons: polygons,
+                timestamp: new Date().toISOString()
+            };
+            
+            // Save to memory (in real app, use IndexedDB)
+            window.mapData = data;
+            console.log('Auto-saved map data');
+        }
+
+        // Auto-save every 30 seconds
+        setInterval(autoSave, 30000);
+
+        // Initialize tooltips
+        function initTooltips() {
+            const tooltips = document.querySelectorAll('[title]');
+            tooltips.forEach(element => {
+                element.addEventListener('mouseenter', (e) => {
+                    const tooltip = document.createElement('div');
+                    tooltip.className = 'tooltip';
+                    tooltip.textContent = e.target.getAttribute('title');
+                    tooltip.style.cssText = `
+                        position: fixed;
+                        background: rgba(0, 0, 0, 0.8);
+                        color: white;
+                        padding: 4px 8px;
+                        border-radius: 4px;
+                        font-size: 12px;
+                        z-index: 10000;
+                        pointer-events: none;
+                    `;
+                    document.body.appendChild(tooltip);
+                    
+                    const updatePosition = (e) => {
+                        tooltip.style.left = e.pageX + 10 + 'px';
+                        tooltip.style.top = e.pageY - 30 + 'px';
+                    };
+                    
+                    updatePosition(e);
+                    element.addEventListener('mousemove', updatePosition);
+                    
+                    element.addEventListener('mouseleave', () => {
+                        if (document.body.contains(tooltip)) {
+                            document.body.removeChild(tooltip);
+                        }
+                        element.removeEventListener('mousemove', updatePosition);
+                    });
+                });
+            });
+        }
+
+        // Initialize tooltips on load
+        window.addEventListener('load', initTooltips);
+
+        console.log('Professional Map Application initialized successfully');
+    </script>
+</body>
+</html>

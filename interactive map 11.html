@@ -1,0 +1,1581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Interactive Map Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+        }
+
+        .sidebar {
+            width: 380px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 1.5rem;
+            overflow-y: auto;
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+
+        .sidebar.collapsed {
+            transform: translateX(-100%);
+        }
+
+        .header {
+            margin-bottom: 1.5rem;
+        }
+
+        .header h1 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            color: #718096;
+            font-size: 0.85rem;
+        }
+
+        .tab-container {
+            display: flex;
+            background: #f7fafc;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            padding: 0.25rem;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 0.5rem 0.75rem;
+            text-align: center;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: #718096;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .tab.active {
+            background: white;
+            color: #667eea;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .control-group {
+            margin-bottom: 1.2rem;
+        }
+
+        .control-label {
+            display: block;
+            font-weight: 500;
+            color: #4a5568;
+            margin-bottom: 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        .control-input {
+            width: 100%;
+            padding: 0.7rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            transition: all 0.2s ease;
+            background: white;
+        }
+
+        .control-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 0.7rem 1.2rem;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            width: 100%;
+            margin-bottom: 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn.secondary {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+
+        .btn.secondary:hover {
+            background: #cbd5e0;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn.danger {
+            background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+        }
+
+        .btn.success {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn-group .btn {
+            flex: 1;
+            margin-bottom: 0;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            margin-bottom: 1.2rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 0.8rem;
+            border-radius: 6px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: #718096;
+            margin-top: 0.25rem;
+        }
+
+        .weather-card {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 1rem;
+        }
+
+        .weather-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .weather-temp {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #2d3748;
+        }
+
+        .weather-desc {
+            font-size: 0.8rem;
+            color: #718096;
+            text-transform: capitalize;
+        }
+
+        .marker-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            background: white;
+        }
+
+        .marker-item {
+            padding: 0.7rem;
+            border-bottom: 1px solid #f7fafc;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .marker-item:hover {
+            background: #f7fafc;
+        }
+
+        .marker-item:last-child {
+            border-bottom: none;
+        }
+
+        .marker-title {
+            font-weight: 500;
+            color: #2d3748;
+            font-size: 0.85rem;
+        }
+
+        .marker-coords {
+            font-size: 0.75rem;
+            color: #718096;
+            margin-top: 0.25rem;
+        }
+
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .toggle-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1001;
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s ease;
+        }
+
+        .toggle-btn:hover {
+            background: white;
+            transform: scale(1.05);
+        }
+
+        .floating-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1001;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .floating-btn {
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s ease;
+            font-size: 1.1rem;
+        }
+
+        .floating-btn:hover {
+            background: white;
+            transform: scale(1.05);
+        }
+
+        .floating-btn.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.9);
+            padding: 2rem;
+            border-radius: 12px;
+            text-align: center;
+            z-index: 1002;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e2e8f0;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .custom-popup {
+            min-width: 280px;
+        }
+
+        .popup-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem;
+            margin: -10px -10px 10px -10px;
+            border-radius: 8px 8px 0 0;
+            font-weight: 600;
+        }
+
+        .popup-content {
+            padding: 0.5rem 0;
+        }
+
+        .popup-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            padding: 0.25rem 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .popup-row:last-child {
+            border-bottom: none;
+        }
+
+        .popup-label {
+            font-weight: 500;
+            color: #4a5568;
+        }
+
+        .popup-value {
+            color: #2d3748;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 2000;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification.success {
+            border-left: 4px solid #48bb78;
+        }
+
+        .notification.error {
+            border-left: 4px solid #f56565;
+        }
+
+        .notification.info {
+            border-left: 4px solid #667eea;
+        }
+
+        .range-slider {
+            width: 100%;
+            margin: 0.5rem 0;
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .checkbox-item input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+        }
+
+        .checkbox-item label {
+            font-size: 0.85rem;
+            color: #4a5568;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                position: absolute;
+                height: 100%;
+            }
+            
+            .floating-controls {
+                right: 10px;
+                top: 80px;
+            }
+        }
+
+        .leaflet-control-zoom {
+            border: none !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+        }
+
+        .leaflet-control-zoom a {
+            background: rgba(255, 255, 255, 0.9) !important;
+            border: none !important;
+            color: #4a5568 !important;
+            font-weight: 600 !important;
+        }
+
+        .leaflet-control-zoom a:hover {
+            background: white !important;
+        }
+
+        .heat-legend {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            z-index: 1001;
+        }
+
+        .legend-title {
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .legend-gradient {
+            width: 200px;
+            height: 10px;
+            background: linear-gradient(to right, #0000ff, #00ff00, #ffff00, #ff0000);
+            border-radius: 5px;
+            margin-bottom: 0.5rem;
+        }
+
+        .legend-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: #718096;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar" id="sidebar">
+            <div class="header">
+                <h1>Map Dashboard Pro</h1>
+                <p>Advanced geospatial analytics & visualization</p>
+            </div>
+
+            <div class="tab-container">
+                <div class="tab active" data-tab="map">Map</div>
+                <div class="tab" data-tab="data">Data</div>
+                <div class="tab" data-tab="analysis">Analysis</div>
+                <div class="tab" data-tab="export">Export</div>
+            </div>
+
+            <!-- Map Tab -->
+            <div class="tab-content active" id="map-tab">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number" id="totalMarkers">0</div>
+                        <div class="stat-label">Total Markers</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="visibleMarkers">0</div>
+                        <div class="stat-label">Visible</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="selectedMarkers">0</div>
+                        <div class="stat-label">Selected</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="mapZoom">10</div>
+                        <div class="stat-label">Zoom Level</div>
+                    </div>
+                </div>
+
+                <div class="weather-card" id="weatherCard" style="display: none;">
+                    <div class="weather-header">
+                        <div>
+                            <div class="weather-temp" id="weatherTemp">--°C</div>
+                            <div class="weather-desc" id="weatherDesc">--</div>
+                        </div>
+                        <div id="weatherIcon">🌤️</div>
+                    </div>
+                    <div style="font-size: 0.8rem; color: #718096;">
+                        <div>Humidity: <span id="weatherHumidity">--%</span></div>
+                        <div>Wind: <span id="weatherWind">-- km/h</span></div>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Search Location</label>
+                    <input type="text" class="control-input" id="searchInput" placeholder="Enter city, address, or coordinates">
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn" id="searchBtn">Search</button>
+                    <button class="btn secondary" id="myLocationBtn">My Location</button>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Map Layer</label>
+                    <select class="control-input" id="layerSelect">
+                        <option value="streets">Streets</option>
+                        <option value="satellite">Satellite</option>
+                        <option value="terrain">Terrain</option>
+                        <option value="dark">Dark Mode</option>
+                        <option value="watercolor">Watercolor</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Marker Style</label>
+                    <select class="control-input" id="markerStyle">
+                        <option value="default">Default</option>
+                        <option value="custom">Custom Icons</option>
+                        <option value="cluster">Clustered</option>
+                        <option value="heatmap">Heatmap</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <div class="checkbox-group">
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="showTraffic">
+                            <label for="showTraffic">Show Traffic</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="showWeather">
+                            <label for="showWeather">Weather Info</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="showBounds">
+                            <label for="showBounds">Show Bounds</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Tab -->
+            <div class="tab-content" id="data-tab">
+                <div class="control-group">
+                    <button class="btn" id="loadDataBtn">Load Sample Data</button>
+                    <button class="btn secondary" id="loadRealTimeBtn">Real-time Data</button>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Data Source</label>
+                    <select class="control-input" id="dataSource">
+                        <option value="cities">World Cities</option>
+                        <option value="earthquakes">Earthquakes</option>
+                        <option value="airports">Airports</option>
+                        <option value="weather">Weather Stations</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Filter by Distance (km)</label>
+                    <input type="range" class="range-slider" id="distanceFilter" min="0" max="5000" value="5000">
+                    <div style="font-size: 0.8rem; color: #718096;">
+                        Radius: <span id="distanceValue">5000</span> km
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Add Custom Marker</label>
+                    <input type="text" class="control-input" id="customLat" placeholder="Latitude">
+                    <input type="text" class="control-input" id="customLng" placeholder="Longitude" style="margin-top: 0.5rem;">
+                    <input type="text" class="control-input" id="customTitle" placeholder="Marker Title" style="margin-top: 0.5rem;">
+                    <select class="control-input" id="customCategory" style="margin-top: 0.5rem;">
+                        <option value="default">Default</option>
+                        <option value="restaurant">Restaurant</option>
+                        <option value="hotel">Hotel</option>
+                        <option value="hospital">Hospital</option>
+                        <option value="school">School</option>
+                    </select>
+                    <button class="btn" id="addMarkerBtn" style="margin-top: 0.5rem;">Add Marker</button>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Marker List</label>
+                    <div class="marker-list" id="markerList"></div>
+                </div>
+            </div>
+
+            <!-- Analysis Tab -->
+            <div class="tab-content" id="analysis-tab">
+                <div class="control-group">
+                    <button class="btn" id="calculateDistanceBtn">Calculate Distances</button>
+                    <button class="btn secondary" id="findNearestBtn">Find Nearest</button>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Spatial Analysis</label>
+                    <div class="btn-group">
+                        <button class="btn secondary" id="bufferBtn">Buffer Zone</button>
+                        <button class="btn secondary" id="clusterBtn">Cluster</button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Buffer Radius (km)</label>
+                    <input type="range" class="range-slider" id="bufferRadius" min="1" max="100" value="10">
+                    <div style="font-size: 0.8rem; color: #718096;">
+                        Radius: <span id="bufferValue">10</span> km
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Statistics</label>
+                    <div class="stat-card">
+                        <div class="stat-number" id="avgDistance">0</div>
+                        <div class="stat-label">Avg Distance (km)</div>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <button class="btn" id="generateReportBtn">Generate Report</button>
+                </div>
+            </div>
+
+            <!-- Export Tab -->
+            <div class="tab-content" id="export-tab">
+                <div class="control-group">
+                    <label class="control-label">Export Options</label>
+                    <button class="btn" id="exportGeoJSONBtn">Export as GeoJSON</button>
+                    <button class="btn secondary" id="exportCSVBtn">Export as CSV</button>
+                    <button class="btn secondary" id="exportImageBtn">Export as Image</button>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Share Map</label>
+                    <input type="text" class="control-input" id="shareUrl" placeholder="Shareable URL will appear here" readonly>
+                    <button class="btn" id="generateShareBtn">Generate Share Link</button>
+                </div>
+
+                <div class="control-group">
+                    <button class="btn danger" id="clearAllBtn">Clear All Data</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="map-container">
+            <button class="toggle-btn" id="toggleSidebar">☰</button>
+            
+            <div class="floating-controls">
+                <button class="floating-btn" id="drawBtn" title="Draw Tools">✏️</button>
+                <button class="floating-btn" id="measureBtn" title="Measure">📏</button>
+                <button class="floating-btn" id="fullscreenBtn" title="Fullscreen">⛶</button>
+                <button class="floating-btn" id="printBtn" title="Print">🖨️</button>
+            </div>
+
+            <div id="map"></div>
+            
+            <div class="heat-legend" id="heatLegend" style="display: none;">
+                <div class="legend-title">Heat Intensity</div>
+                <div class="legend-gradient"></div>
+                <div class="legend-labels">
+                    <span>Low</span>
+                    <span>Medium</span>
+                    <span>High</span>
+                </div>
+            </div>
+
+            <div class="loading" id="loading" style="display: none;">
+                <div class="spinner"></div>
+                <p>Loading map data...</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="notification" id="notification">
+        <div id="notificationText"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
+    <script>
+        class AdvancedInteractiveMap {
+            constructor() {
+                this.map = null;
+                this.markers = [];
+                this.selectedMarkers = [];
+                this.currentLayer = null;
+                this.userLocation = null;
+                this.drawControl = null;
+                this.markerCluster = null;
+                this.heatLayer = null;
+                this.bufferLayers = [];
+                this.measureControl = null;
+                this.isDrawing = false;
+                this.isMeasuring = false;
+                this.init();
+            }
+
+            init() {
+                this.initMap();
+                this.initEventListeners();
+                this.initTabs();
+                this.initDrawTools();
+                this.loadSampleData();
+            }
+
+            initMap() {
+                this.map = L.map('map').setView([37.7749, -122.4194], 10);
+
+                this.currentLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(this.map);
+
+                L.control.scale().addTo(this.map);
+
+                // Initialize marker cluster
+                this.markerCluster = L.markerClusterGroup({
+                    chunkedLoading: true,
+                    spiderfyOnMaxZoom: true
+                });
+
+                // Map events
+                this.map.on('click', (e) => {
+                    if (!this.isDrawing) {
+                        this.addMarkerAtLocation(e.latlng.lat, e.latlng.lng, 'Custom Location');
+                    }
+                });
+
+                this.map.on('moveend', () => {
+                    this.updateVisibleMarkers();
+                    this.updateStats();
+                });
+
+                this.map.on('zoomend', () => {
+                    document.getElementById('mapZoom').textContent = this.map.getZoom();
+                });
+            }
+
+            initEventListeners() {
+                // Sidebar toggle
+                document.getElementById('toggleSidebar').addEventListener('click', () => {
+                    document.getElementById('sidebar').classList.toggle('collapsed');
+                });
+
+                // Search functionality
+                document.getElementById('searchBtn').addEventListener('click', () => {
+                    this.searchLocation();
+                });
+
+                document.getElementById('searchInput').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        this.searchLocation();
+                    }
+                });
+
+                // Location and layer controls
+                document.getElementById('myLocationBtn').addEventListener('click', () => {
+                    this.getUserLocation();
+                });
+
+                document.getElementById('layerSelect').addEventListener('change', (e) => {
+                    this.changeLayer(e.target.value);
+                });
+
+                document.getElementById('markerStyle').addEventListener('change', (e) => {
+                    this.changeMarkerStyle(e.target.value);
+                });
+
+                // Data controls
+                document.getElementById('loadDataBtn').addEventListener('click', () => {
+                    this.loadSampleData();
+                });
+
+                document.getElementById('loadRealTimeBtn').addEventListener('click', () => {
+                    this.loadRealTimeData();
+                });
+
+                document.getElementById('dataSource').addEventListener('change', (e) => {
+                    this.loadDataBySource(e.target.value);
+                });
+
+                // Custom marker
+                document.getElementById('addMarkerBtn').addEventListener('click', () => {
+                    this.addCustomMarker();
+                });
+
+                // Analysis tools
+                document.getElementById('calculateDistanceBtn').addEventListener('click', () => {
+                    this.calculateDistances();
+                });
+
+                document.getElementById('findNearestBtn').addEventListener('click', () => {
+                    this.findNearest();
+                });
+
+                document.getElementById('bufferBtn').addEventListener('click', () => {
+                    this.createBufferZones();
+                });
+
+                document.getElementById('clusterBtn').addEventListener('click', () => {
+                    this.toggleClustering();
+                });
+
+                document.getElementById('generateReportBtn').addEventListener('click', () => {
+                    this.generateReport();
+                });
+
+                // Export tools
+                document.getElementById('exportGeoJSONBtn').addEventListener('click', () => {
+                    this.exportGeoJSON();
+                });
+
+                document.getElementById('exportCSVBtn').addEventListener('click', () => {
+                    this.exportCSV();
+                });
+
+                document.getElementById('exportImageBtn').addEventListener('click', () => {
+                    this.exportImage();
+                });
+
+                document.getElementById('generateShareBtn').addEventListener('click', () => {
+                    this.generateShareLink();
+                });
+
+                document.getElementById('clearAllBtn').addEventListener('click', () => {
+                    this.clearAllData();
+                });
+
+                // Floating controls
+                document.getElementById('drawBtn').addEventListener('click', () => {
+                    this.toggleDrawing();
+                });
+
+                document.getElementById('measureBtn').addEventListener('click', () => {
+                    this.toggleMeasuring();
+                });
+
+                document.getElementById('fullscreenBtn').addEventListener('click', () => {
+                    this.toggleFullscreen();
+                });
+
+                document.getElementById('printBtn').addEventListener('click', () => {
+                    this.printMap();
+                });
+
+                // Range sliders
+                document.getElementById('distanceFilter').addEventListener('input', (e) => {
+                    document.getElementById('distanceValue').textContent = e.target.value;
+                    this.filterByDistance(e.target.value);
+                });
+
+                document.getElementById('bufferRadius').addEventListener('input', (e) => {
+                    document.getElementById('bufferValue').textContent = e.target.value;
+                });
+
+                // Checkboxes
+                document.getElementById('showTraffic').addEventListener('change', (e) => {
+                    this.toggleTraffic(e.target.checked);
+                });
+
+                document.getElementById('showWeather').addEventListener('change', (e) => {
+                    this.toggleWeather(e.target.checked);
+                });
+
+                document.getElementById('showBounds').addEventListener('change', (e) => {
+                    this.toggleBounds(e.target.checked);
+                });
+            }
+
+            initTabs() {
+                const tabs = document.querySelectorAll('.tab');
+                const tabContents = document.querySelectorAll('.tab-content');
+
+                tabs.forEach(tab => {
+                    tab.addEventListener('click', () => {
+                        const targetTab = tab.dataset.tab;
+                        
+                        tabs.forEach(t => t.classList.remove('active'));
+                        tabContents.forEach(tc => tc.classList.remove('active'));
+                        
+                        tab.classList.add('active');
+                        document.getElementById(`${targetTab}-tab`).classList.add('active');
+                    });
+                });
+            }
+
+            initDrawTools() {
+                const drawItems = new L.FeatureGroup();
+                this.map.addLayer(drawItems);
+
+                this.drawControl = new L.Control.Draw({
+                    position: 'topright',
+                    draw: {
+                        polygon: true,
+                        polyline: true,
+                        rectangle: true,
+                        circle: true,
+                        marker: true,
+                        circlemarker: false
+                    },
+                    edit: {
+                        featureGroup: drawItems,
+                        remove: true
+                    }
+                });
+
+                this.map.on(L.Draw.Event.CREATED, (e) => {
+                    const layer = e.layer;
+                    drawItems.addLayer(layer);
+                    this.showNotification('Shape drawn successfully!', 'success');
+                });
+            }
+
+            async searchLocation() {
+                const query = document.getElementById('searchInput').value.trim();
+                if (!query) return;
+
+                this.showLoading();
+
+                try {
+                    const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
+                    const data = await response.json();
+
+                    if (data.length > 0) {
+                        const result = data[0];
+                        const lat = parseFloat(result.lat);
+                        const lng = parseFloat(result.lon);
+                        
+                        this.map.setView([lat, lng], 15);
+                        this.addMarkerAtLocation(lat, lng, result.display_name);
+                        this.showNotification(`Location found: ${result.display_name}`, 'success');
+                    } else {
+                        this.showNotification('Location not found. Please try a different search term.', 'error');
+                    }
+                } catch (error) {
+                    console.error('Search error:', error);
+                    this.showNotification('Error searching location. Please try again.', 'error');
+                } finally {
+                    this.hideLoading();
+                }
+            }
+
+            getUserLocation() {
+                if (!navigator.geolocation) {
+                    this.showNotification('Geolocation is not supported by this browser.', 'error');
+                    return;
+                }
+
+                this.showLoading();
+
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        
+                        this.userLocation = [lat, lng];
+                        this.map.setView([lat, lng], 15);
+                        
+                        const userMarker = L.marker([lat, lng], {
+                            icon: L.icon({
+                                iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiIGZpbGw9IiM2NjdlZWEiLz4KPGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iNCIgZmlsbD0id2hpdGUiLz4KPC9zdmc+',
+                                iconSize: [20, 20],
+                                iconAnchor: [10, 10]
+                            })
+                        }).addTo(this.map);
+
+                        userMarker.bindPopup(this.createPopupContent('Your Location', {
+                            'Latitude': lat.toFixed(6),
+                            'Longitude': lng.toFixed(6),
+                            'Accuracy': `${position.coords.accuracy.toFixed(0)}m`
+                        }));
+
+                        this.markers.push(userMarker);
+                        this.updateStats();
+                        this.loadWeatherData(lat, lng);
+                        this.hideLoading();
+                        this.showNotification('Location found successfully!', 'success');
+                    },
+                    (error) => {
+                        console.error('Geolocation error:', error);
+                        this.showNotification('Unable to get your location. Please check permissions.', 'error');
+                        this.hideLoading();
+                    }
+                );
+            }
+
+            changeLayer(layerType) {
+                if (this.currentLayer) {
+                    this.map.removeLayer(this.currentLayer);
+                }
+
+                const layers = {
+                    streets: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                    terrain: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+                    dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+                    watercolor: 'https://stamen-tiles-{s}.a.ssl.fastly.net/watercolor/{z}/{x}/{y}.png'
+                };
+
+                this.currentLayer = L.tileLayer(layers[layerType], {
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(this.map);
+
+                this.showNotification(`Layer changed to ${layerType}`, 'info');
+            }
+
+            changeMarkerStyle(style) {
+                switch (style) {
+                    case 'cluster':
+                        this.enableClustering();
+                        break;
+                    case 'heatmap':
+                        this.enableHeatmap();
+                        break;
+                    case 'custom':
+                        this.enableCustomIcons();
+                        break;
+                    default:
+                        this.enableDefaultStyle();
+                }
+            }
+
+            enableClustering() {
+                this.markers.forEach(marker => {
+                    this.map.removeLayer(marker);
+                    this.markerCluster.addLayer(marker);
+                });
+                this.map.addLayer(this.markerCluster);
+                this.showNotification('Clustering enabled', 'info');
+            }
+
+            enableHeatmap() {
+                if (this.heatLayer) {
+                    this.map.removeLayer(this.heatLayer);
+                }
+
+                const heatData = this.markers.map(marker => {
+                    const latlng = marker.getLatLng();
+                    return [latlng.lat, latlng.lng, Math.random()]; // Using random intensity for demo
+                });
+
+                this.heatLayer = L.heatLayer(heatData, {
+                    radius: 20,
+                    blur: 15,
+                    maxZoom: 17
+                }).addTo(this.map);
+
+                document.getElementById('heatLegend').style.display = 'block';
+                this.showNotification('Heatmap enabled', 'info');
+            }
+
+            enableCustomIcons() {
+                this.markers.forEach(marker => {
+                    const customIcon = L.icon({
+                        iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMzQgMiA1IDUuMTM0IDUgOUM1IDEyLjUgMTIgMjIgMTIgMjJTMTkgMTIuNSAxOSA5QzE5IDUuMTM0IDE1Ljg2NiAyIDEyIDJaTTEyIDExLjVDMTAuNjIgMTEuNSA5LjUgMTAuMzggOS41IDlTMTAuNjIgNi41IDEyIDYuNVMxNC41IDcuNjIgMTQuNSA5UzEzLjM4IDExLjUgMTIgMTEuNVoiIGZpbGw9IiNGRjY2MDAiLz4KPC9zdmc+',
+                        iconSize: [30, 30],
+                        iconAnchor: [15, 30],
+                        popupAnchor: [0, -30]
+                    });
+                    marker.setIcon(customIcon);
+                });
+                this.showNotification('Custom icons enabled', 'info');
+            }
+
+            enableDefaultStyle() {
+                if (this.markerCluster) {
+                    this.map.removeLayer(this.markerCluster);
+                }
+                if (this.heatLayer) {
+                    this.map.removeLayer(this.heatLayer);
+                    document.getElementById('heatLegend').style.display = 'none';
+                }
+
+                this.markers.forEach(marker => {
+                    if (!this.map.hasLayer(marker)) {
+                        this.map.addLayer(marker);
+                    }
+                });
+                this.showNotification('Default style enabled', 'info');
+            }
+
+            addMarkerAtLocation(lat, lng, title, additionalData = {}) {
+                const marker = L.marker([lat, lng]).addTo(this.map);
+                
+                marker.bindPopup(this.createPopupContent(title, {
+                    'Latitude': lat.toFixed(6),
+                    'Longitude': lng.toFixed(6),
+                    ...additionalData
+                }));
+
+                marker.on('click', () => {
+                    this.selectMarker(marker);
+                });
+
+                this.markers.push(marker);
+                this.updateStats();
+                this.updateMarkerList();
+                
+                return marker;
+            }
+
+            createPopupContent(title, data) {
+                return `
+                    <div class="custom-popup">
+                        <div class="popup-header">${title}</div>
+                        <div class="popup-content">
+                            ${Object.entries(data).map(([key, value]) => `
+                                <div class="popup-row">
+                                    <span class="popup-label">${key}:</span>
+                                    <span class="popup-value">${value}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            selectMarker(marker) {
+                if (this.selectedMarkers.includes(marker)) {
+                    this.selectedMarkers = this.selectedMarkers.filter(m => m !== marker);
+                } else {
+                    this.selectedMarkers.push(marker);
+                }
+                this.updateStats();
+            }
+
+            addCustomMarker() {
+                const lat = parseFloat(document.getElementById('customLat').value);
+                const lng = parseFloat(document.getElementById('customLng').value);
+                const title = document.getElementById('customTitle').value || 'Custom Marker';
+                const category = document.getElementById('customCategory').value;
+
+                if (isNaN(lat) || isNaN(lng)) {
+                    this.showNotification('Please enter valid latitude and longitude values.', 'error');
+                    return;
+                }
+
+                if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+                    this.showNotification('Please enter valid coordinate ranges.', 'error');
+                    return;
+                }
+
+                this.addMarkerAtLocation(lat, lng, title, { 'Category': category });
+                this.map.setView([lat, lng], 15);
+
+                // Clear inputs
+                document.getElementById('customLat').value = '';
+                document.getElementById('customLng').value = '';
+                document.getElementById('customTitle').value = '';
+
+                this.showNotification('Custom marker added successfully!', 'success');
+            }
+
+            loadSampleData() {
+                this.showLoading();
+
+                const sampleData = [
+                    { lat: 40.7128, lng: -74.0060, name: 'New York City', population: '8.3M', country: 'USA' },
+                    { lat: 34.0522, lng: -118.2437, name: 'Los Angeles', population: '3.9M', country: 'USA' },
+                    { lat: 41.8781, lng: -87.6298, name: 'Chicago', population: '2.7M', country: 'USA' },
+                    { lat: 29.7604, lng: -95.3698, name: 'Houston', population: '2.3M', country: 'USA' },
+                    { lat: 51.5074, lng: -0.1278, name: 'London', population: '9.0M', country: 'UK' },
+                    { lat: 48.8566, lng: 2.3522, name: 'Paris', population: '2.1M', country: 'France' },
+                    { lat: 35.6762, lng: 139.6503, name: 'Tokyo', population: '37.4M', country: 'Japan' },
+                    { lat: -33.8688, lng: 151.2093, name: 'Sydney', population: '5.3M', country: 'Australia' },
+                    { lat: 55.7558, lng: 37.6176, name: 'Moscow', population: '12.5M', country: 'Russia' },
+                    { lat: 19.4326, lng: -99.1332, name: 'Mexico City', population: '21.6M', country: 'Mexico' }
+                ];
+
+                setTimeout(() => {
+                    sampleData.forEach(city => {
+                        this.addMarkerAtLocation(city.lat, city.lng, city.name, {
+                            'Population': city.population,
+                            'Country': city.country,
+                            'Type': 'Major City'
+                        });
+                    });
+                    this.hideLoading();
+                    this.showNotification('Sample data loaded successfully!', 'success');
+                }, 1000);
+            }
+
+            async loadRealTimeData() {
+                this.showLoading();
+                try {
+                    // Simulate real-time earthquake data
+                    const earthquakeData = [
+                        { lat: 37.7749, lng: -122.4194, magnitude: 4.2, depth: 10 },
+                        { lat: 34.0522, lng: -118.2437, magnitude: 3.8, depth: 15 },
+                        { lat: 40.7128, lng: -74.0060, magnitude: 2.1, depth: 5 },
+                        { lat: 35.6762, lng: 139.6503, magnitude: 5.1, depth: 25 },
+                        { lat: -33.8688, lng: 151.2093, magnitude: 3.3, depth: 12 }
+                    ];
+
+                    earthquakeData.forEach(quake => {
+                        this.addMarkerAtLocation(quake.lat, quake.lng, `Earthquake M${quake.magnitude}`, {
+                            'Magnitude': quake.magnitude,
+                            'Depth': `${quake.depth} km`,
+                            'Type': 'Earthquake',
+                            'Time': new Date().toLocaleTimeString()
+                        });
+                    });
+
+                    this.hideLoading();
+                    this.showNotification('Real-time data loaded successfully!', 'success');
+                } catch (error) {
+                    this.hideLoading();
+                    this.showNotification('Error loading real-time data', 'error');
+                }
+            }
+
+            loadDataBySource(source) {
+                this.clearMarkers();
+                this.showLoading();
+
+                const dataSources = {
+                    cities: () => this.loadSampleData(),
+                    earthquakes: () => this.loadRealTimeData(),
+                    airports: () => this.loadAirportData(),
+                    weather: () => this.loadWeatherStations()
+                };
+
+                if (dataSources[source]) {
+                    dataSources[source]();
+                } else {
+                    this.hideLoading();
+                }
+            }
+
+            loadAirportData() {
+                const airports = [
+                    { lat: 37.6213, lng: -122.3790, name: 'San Francisco Airport', code: 'SFO' },
+                    { lat: 40.6413, lng: -73.7781, name: 'JFK Airport', code: 'JFK' },
+                    { lat: 34.0522, lng: -118.2437, name: 'LAX Airport', code: 'LAX' },
+                    { lat: 51.4700, lng: -0.4543, name: 'Heathrow Airport', code: 'LHR' },
+                    { lat: 35.7720, lng: 140.3929, name: 'Narita Airport', code: 'NRT' }
+                ];
+
+                airports.forEach(airport => {
+                    this.addMarkerAtLocation(airport.lat, airport.lng, airport.name, {
+                        'Code': airport.code,
+                        'Type': 'Airport'
+                    });
+                });
+
+                this.hideLoading();
+                this.showNotification('Airport data loaded successfully!', 'success');
+            }
+
+            loadWeatherStations() {
+                const stations = [
+                    { lat: 37.7749, lng: -122.4194, name: 'SF Weather Station', temp: 18 },
+                    { lat: 40.7128, lng: -74.0060, name: 'NYC Weather Station', temp: 22 },
+                    { lat: 34.0522, lng: -118.2437, name: 'LA Weather Station', temp: 25 },
+                    { lat: 51.5074, lng: -0.1278, name: 'London Weather Station', temp: 15 },
+                    { lat: 48.8566, lng: 2.3522, name: 'Paris Weather Station', temp: 17 }
+                ];
+
+                stations.forEach(station => {
+                    this.addMarkerAtLocation(station.lat, station.lng, station.name, {
+                        'Temperature': `${station.temp}°C`,
+                        'Type': 'Weather Station'
+                    });
+                });
+
+                this.hideLoading();
+                this.showNotification('Weather station data loaded successfully!', 'success');
+            }
+
+            async loadWeatherData(lat, lng) {
+                try {
+                    // Simulate weather data (in real implementation, use OpenWeatherMap API)
+                    const weatherData = {
+                        temperature: Math.round(Math.random() * 30 + 5),
+                        description: ['sunny', 'cloudy', 'rainy', 'snowy'][Math.floor(Math.random() * 4)],
+                        humidity: Math.round(Math.random() * 100),
+                        windSpeed: Math.round(Math.random() * 30)
+                    };
+
+                    document.getElementById('weatherTemp').textContent = `${weatherData.temperature}°C`;
+                    document.getElementById('weatherDesc').textContent = weatherData.description;
+                    document.getElementById('weatherHumidity').textContent = `${weatherData.humidity}%`;
+                    document.getElementById('weatherWind').textContent = `${weatherData.windSpeed} km/h`;
+                    document.getElementById('weatherCard').style.display = 'block';
+                } catch (error) {
+                    console.error('Weather API error:', error);
+                }
+            }
+
+            filterByDistance(maxDistance) {
+                if (!this.userLocation) {
+                    this.showNotification('Please get your location first', 'error');
+                    return;
+                }
+
+                const [userLat, userLng] = this.userLocation;
+                
+                this.markers.forEach(marker => {
+                    const markerPos = marker.getLatLng();
+                    const distance = this.calculateDistance(userLat, userLng, markerPos.lat, markerPos.lng);
+                    
+                    if (distance <= maxDistance) {
+                        marker.setOpacity(1);
+                    } else {
+                        marker.setOpacity(0.3);
+                    }
+                });
+
+                this.showNotification(`Filtered by ${maxDistance}km radius`, 'info');
+            }
+
+            calculateDistance(lat1, lng1, lat2, lng2) {
+                const R = 6371; // Earth's radius in km
+                const dLat = (lat2 - lat1) * Math.PI / 180;
+                const dLng = (lng2 - lng1) * Math.PI / 180;
+                const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                    Math.sin(dLng/2) * Math.sin(dLng/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                return R * c;
+            }
+
+            calculateDistances() {
+                if (this.selectedMarkers.length < 2) {
+                    this.showNotification('Please select at least 2 markers', 'error');
+                    return;
+                }
+
+                let totalDistance = 0;
+                let distances = [];
+
+                for (let i = 0; i < this.selectedMarkers.length - 1; i++) {
+                    const pos1 = this.selectedMarkers[i].getLatLng();
+                    const pos2 = this.selectedMarkers[i + 1].getLatLng();
+                    const distance = this.calculateDistance(pos1.lat, pos1.lng, pos2.lat, pos2.lng);
+                    distances.push(distance);
+                    totalDistance += distance;
+                }
+
+                const avgDistance = totalDistance / distances.length;
+                document.getElementById('avgDistance').textContent = avgDistance.toFixed(2);
+
+                this.showNotification(`Total distance: ${totalDistance.toFixed(2)} km`, 'info');
+            }
+
+            findNearest() {
+                if (!this.userLocation) {
+                    this.showNotification('Please get your location first', 'error');
+                    return;
+                }
+
+                const [userLat, userLng] = this.userLocation;
+                let nearestMarker = null;
+                let minDistance = Infinity;
+
+                this.markers.forEach(marker => {
+                    const markerPos = marker.getLatLng();
+                    const distance = this.calculateDistance(userLat, userLng, markerPos.lat, markerPos.lng);
+                    
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        nearestMarker = marker;
+                    }
+                });
+
+                if (nearestMarker) {
+                    this.map.setView(nearestMarker.getLatLng(), 15);
+                    nearestMarker.openPopup();
+                    this.showNotification(`Nearest marker: ${minDistance.toFixed(2)} km away`, 'success');
+                }
+            }
+
+            createBufferZones() {
+                const radius = document.getElementById('bufferRadius').value;
+                
+                this.selectedMarkers.forEach(marker => {
+                    const pos = marker.getLatLng();
+                    const circle = L.circle([pos.lat, pos.lng], {
+                        radius: radius * 1000, // Convert km to meters
+                        color: '#667eea',
+                        fillColor: '#667eea',
+                        fillOpacity: 0.1
+                    }).addTo(this.map);
+
+                    this.bufferLayers.push(circle);
+                });
+
+                this.showNotification(`Buffer zones created with ${radius}km radius`, 'success');
+            }
+
+            toggleClustering() {
+                if (this.map.hasLayer(this.markerCluster)) {
+                    this.map.removeLayer(this.markerCluster);
+                    this.markers.forEach(marker => this.map.addLayer(marker));
+                    this.showNotification('Clustering disabled', 'info');
+                } else {
+                    this.markers.forEach(marker => this.map.removeLayer(marker));
+                    this.markers.forEach(marker => this.markerCluster.addLayer(marker));
+                    this.map.addLayer(this.markerCluster);
+                    this.showNotification('Clustering enabled', 'info');
+                }
+            }
+
+            generateReport() {
+                const report = {
+                    timestamp: new Date().toISOString(),
+                    totalMarkers: this.markers.length,
+                    selectedMarkers: this.selectedMarkers.length,
+                    mapCenter: this.map.getCenter(),
+                    zoomLevel: this.map.getZoom(),
+                    bounds: this.map.getBounds(),
+                    markerData: this.markers.map(marker => ({
+                        position: marker.getLatLng(),
+                        popup: marker.getPopup() ? marker.getPopup().getContent() : null
+                    }))
+                };
+
+                const reportWindow = window.open('', '_blank');
+                reportWindow.document.write(`
+                    <html>
+                        <head>
+                            <title>Map Analysis Report</title>
+                            <style>
+                                body { font-family: Arial, sans-serif; margin: 20px; }
+                                .header { background: #667eea; color: white; padding: 20px; margin-bottom: 20px; }
+                                .section { margin-bottom: 20px; }
+                                .data { background: #f5f5f5; padding: 15px; border-radius: 5px; }
+                            </style>
+                        </head>
+                        <body>
+                            <div class="header">
+                                <h1>Map Analysis Report</h1>
+                                <p>Generated on: ${new Date().toLocaleString()}</p>
+                            </div>
+                            <div class="section">
+                                <h2>Statistics</h2>
+                                <div class="data">
+                                    <p><strong>Total Markers:</strong> ${report.totalMarkers}</p>
+                                    <p><strong>Selected Markers:</strong> ${report.selectedMarkers}</p>
+                                    <p><strong>Current Zoom:</strong> ${report.zoomLevel}</p>
+                                    <p><strong>Map Center:</strong> ${report.mapCenter.lat.toFixed(6)}, ${report.mapCenter.lng.toFixed(6)}</p>
+                                </div>
+                            </div>
+                            <div class="section">
+                                <h2>Marker Details</h2>
+                                <div class="data">
+                                    <pre>${JSON.stringify(report.markerData, null, 2)}</pre>
+                                </div>
+                            </div>
+                        </body>
+                    </html>
+                `);
+                reportWindow.document.close();
+
+                this.showNotification('Report generated successfully!', 'success');
+            }
+
+            exportGeoJSON() {
+                const geoJSON = {
+                    type: "FeatureCollection",
+                    features: this.markers.map(marker => ({
+                        type: "Feature",
+                        geometry: {
+                            type: "Point",
+                            coordinates: [marker.getLatLng().lng, marker.getLatLng().lat]
+                        },
+                        properties: {
+                            popup: marker.getPopup() ? marker.getPopup().getContent() : null
+                        }
+                    }))
+                };
+
+                const blob = new Blob([JSON.stringify(geoJSON, null, 2)], {
+                    type: 'application/json'
+                });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'map_data.geojson';
+                a.click();
+                URL.revokeObjectURL(url);
+
+                this.showNotification('GeoJSON exported successfully!', 'success');
+            }
+
+            exportCSV() {
+                const csvData = this.markers.map(marker => ({
+                    lat: marker.getLatLng().lat,
+                    lng: marker.getLatLng().lng,
+                    popup: marker.getPopup() ? marker.getPopup().getContent().replace(/<[^>]*>/g, '') : ''
+                }));
+
+                const csv = [
+                    ['Latitude', 'Longitude', 'Description'],
+                    ...csvData.map(row => [row.lat, row.lng, row.popup])
+                ].map(row => row.join(',')).join('\n');
+
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'map_data.csv';
+                a.click();
+                URL.revokeObjectURL(url);
+
+                this.showNotification('CSV exported successfully!', 'success');
+            }
+
+            exportImage() {
+                // Simple screenshot-like export
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = 1200;
+                canvas.height = 800;
+                
+                ctx.fillStyle = '#667eea';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = 'white';
+                ctx.font = '24px Arial';
+                ctx.fillText('Map Export',

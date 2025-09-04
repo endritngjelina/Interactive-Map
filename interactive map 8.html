@@ -1,0 +1,1605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MapPro - Interactive Mapping Platform</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/2.4.0/maplibre-gl.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/2.4.0/maplibre-gl.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            overflow: hidden;
+        }
+
+        .app-container {
+            position: relative;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: 700;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logo::before {
+            content: "🗺️";
+            font-size: 1.5rem;
+        }
+
+        .header-stats {
+            display: flex;
+            gap: 2rem;
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .stat-value {
+            font-weight: 600;
+            color: #333;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            position: relative;
+            display: flex;
+        }
+
+        /* Map Container */
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 320px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            box-shadow: -2px 0 20px rgba(0, 0, 0, 0.1);
+            z-index: 999;
+            overflow-y: auto;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar.collapsed {
+            transform: translateX(100%);
+        }
+
+        .sidebar-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sidebar-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .sidebar-content {
+            padding: 1.5rem;
+        }
+
+        /* Tool Panels */
+        .tool-panel {
+            margin-bottom: 2rem;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 1.5rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .tool-panel h3 {
+            margin-bottom: 1rem;
+            color: #333;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .tool-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+        }
+
+        .tool-btn {
+            padding: 0.75rem 1rem;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .tool-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .tool-btn.active {
+            background: linear-gradient(45deg, #764ba2, #667eea);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .tool-btn.full-width {
+            grid-column: 1 / -1;
+        }
+
+        /* Controls */
+        .control-group {
+            margin-bottom: 1rem;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #555;
+        }
+
+        .control-group input,
+        .control-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .control-group input:focus,
+        .control-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        /* Floating Controls */
+        .map-controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .control-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            transition: all 0.3s ease;
+        }
+
+        .control-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .toggle-sidebar {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1001;
+        }
+
+        /* Search Box */
+        .search-container {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            width: 400px;
+            max-width: 90vw;
+        }
+
+        .search-box {
+            width: 100%;
+            padding: 1rem 1.5rem;
+            border: none;
+            border-radius: 25px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .search-box:focus {
+            outline: none;
+            box-shadow: 0 6px 30px rgba(0, 0, 0, 0.15);
+            background: white;
+        }
+
+        .search-box::placeholder {
+            color: #999;
+        }
+
+        /* Info Panel */
+        .info-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 340px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            z-index: 998;
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+        }
+
+        .info-panel.active {
+            transform: translateY(0);
+        }
+
+        .info-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .info-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .close-info {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #666;
+            padding: 0.25rem;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+
+        .close-info:hover {
+            background: rgba(0, 0, 0, 0.1);
+            color: #333;
+        }
+
+        /* Measurement Display */
+        .measurement-display {
+            position: absolute;
+            bottom: 20px;
+            right: 340px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 500;
+            z-index: 999;
+            display: none;
+        }
+
+        .measurement-display.active {
+            display: block;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100vw;
+                position: absolute;
+                top: 0;
+                right: 0;
+                height: 100%;
+            }
+
+            .header {
+                padding: 1rem;
+            }
+
+            .header-stats {
+                display: none;
+            }
+
+            .search-container {
+                width: calc(100vw - 40px);
+            }
+
+            .info-panel {
+                right: 20px;
+                left: 20px;
+            }
+
+            .measurement-display {
+                right: 20px;
+            }
+        }
+
+        /* Custom Popup Styles */
+        .maplibregl-popup-content {
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+            border: none;
+            padding: 1.5rem;
+            min-width: 200px;
+        }
+
+        .popup-header {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #333;
+        }
+
+        .popup-content {
+            font-size: 0.9rem;
+            color: #666;
+            line-height: 1.4;
+        }
+
+        /* Loading Indicator */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 2000;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 2rem;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">MapPro</div>
+            <div class="header-stats">
+                <div class="stat-item">
+                    <span>📍</span>
+                    <span>Markers: <span class="stat-value" id="marker-count">0</span></span>
+                </div>
+                <div class="stat-item">
+                    <span>📏</span>
+                    <span>Distance: <span class="stat-value" id="distance-stat">0 km</span></span>
+                </div>
+                <div class="stat-item">
+                    <span>🌐</span>
+                    <span>Online</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Map Container -->
+            <div class="map-container">
+                <div id="map"></div>
+                
+                <!-- Map Controls -->
+                <div class="map-controls">
+                    <button class="control-btn" id="locate-btn" title="Find my location">📍</button>
+                    <button class="control-btn" id="fullscreen-btn" title="Toggle fullscreen">⛶</button>
+                    <button class="control-btn" id="layers-btn" title="Toggle layers">🗂️</button>
+                </div>
+
+                <!-- Search Box -->
+                <div class="search-container">
+                    <input type="text" class="search-box" placeholder="Search for places, addresses, or coordinates..." id="search-input">
+                </div>
+
+                <!-- Toggle Sidebar -->
+                <button class="control-btn toggle-sidebar" id="toggle-sidebar">⚙️</button>
+
+                <!-- Info Panel -->
+                <div class="info-panel" id="info-panel">
+                    <div class="info-header">
+                        <div class="info-title">Location Details</div>
+                        <button class="close-info" id="close-info">×</button>
+                    </div>
+                    <div class="info-content" id="info-content">
+                        Click on the map to see location details
+                    </div>
+                </div>
+
+                <!-- Measurement Display -->
+                <div class="measurement-display" id="measurement-display">
+                    Distance: <span id="distance-value">0 km</span>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="sidebar" id="sidebar">
+                <div class="sidebar-header">
+                    <div class="sidebar-title">Map Tools</div>
+                    <button class="close-info" id="close-sidebar">×</button>
+                </div>
+                <div class="sidebar-content">
+                    <!-- Navigation Tools -->
+                    <div class="tool-panel">
+                        <h3>🧭 Navigation</h3>
+                        <div class="tool-buttons">
+                            <button class="tool-btn" id="add-marker-btn">📍 Add Marker</button>
+                            <button class="tool-btn" id="measure-btn">📏 Measure</button>
+                            <button class="tool-btn" id="route-btn">🗺️ Route</button>
+                            <button class="tool-btn" id="area-btn">📐 Area</button>
+                        </div>
+                    </div>
+
+                    <!-- Drawing Tools -->
+                    <div class="tool-panel">
+                        <h3>✏️ Drawing</h3>
+                        <div class="tool-buttons">
+                            <button class="tool-btn" id="draw-line-btn">📏 Draw Line</button>
+                            <button class="tool-btn" id="draw-polygon-btn">⬟ Polygon</button>
+                            <button class="tool-btn" id="draw-circle-btn">⭕ Circle</button>
+                            <button class="tool-btn full-width" id="clear-drawings-btn">🗑️ Clear All</button>
+                        </div>
+                    </div>
+
+                    <!-- Analysis Tools -->
+                    <div class="tool-panel">
+                        <h3>📊 Analysis</h3>
+                        <div class="tool-buttons">
+                            <button class="tool-btn" id="heatmap-btn">🔥 Heatmap</button>
+                            <button class="tool-btn" id="cluster-btn">🔗 Cluster</button>
+                            <button class="tool-btn" id="buffer-btn">🔵 Buffer</button>
+                            <button class="tool-btn" id="export-btn">💾 Export</button>
+                        </div>
+                    </div>
+
+                    <!-- Map Styles -->
+                    <div class="tool-panel">
+                        <h3>🎨 Map Style</h3>
+                        <div class="control-group">
+                            <select id="style-select">
+                                <option value="streets">Streets</option>
+                                <option value="satellite">Satellite</option>
+                                <option value="terrain">Terrain</option>
+                                <option value="dark">Dark</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Settings -->
+                    <div class="tool-panel">
+                        <h3>⚙️ Settings</h3>
+                        <div class="control-group">
+                            <label for="opacity-slider">Layer Opacity</label>
+                            <input type="range" id="opacity-slider" min="0" max="100" value="100">
+                        </div>
+                        <div class="control-group">
+                            <label for="animation-speed">Animation Speed</label>
+                            <input type="range" id="animation-speed" min="1" max="10" value="5">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div class="loading" id="loading" style="display: none;">
+            <div class="spinner"></div>
+            <div>Loading map data...</div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let map;
+        let currentTool = null;
+        let markers = [];
+        let drawings = [];
+        let measurementLine = null;
+        let routeData = null;
+        let isDrawing = false;
+        let drawingPoints = [];
+        let userLocation = null;
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeMap();
+            setupEventListeners();
+            setupServiceWorker();
+        });
+
+        // Initialize MapLibre map
+        function initializeMap() {
+            showLoading();
+            
+            map = new maplibregl.Map({
+                container: 'map',
+                style: 'https://tiles.stadiamaps.com/styles/alidade_smooth.json',
+                center: [-98.5795, 39.8283], // Center of USA
+                zoom: 4,
+                pitch: 0,
+                bearing: 0
+            });
+
+            // Add navigation controls
+            map.addControl(new maplibregl.NavigationControl(), 'top-left');
+
+            // Add scale control
+            map.addControl(new maplibregl.ScaleControl(), 'bottom-left');
+
+            // Map event listeners
+            map.on('load', function() {
+                hideLoading();
+                setupMapLayers();
+                animateMapLoad();
+            });
+
+            map.on('click', handleMapClick);
+            map.on('mousemove', handleMapMouseMove);
+            map.on('contextmenu', handleMapRightClick);
+        }
+
+        // Setup map layers
+        function setupMapLayers() {
+            // Add heatmap source
+            map.addSource('heatmap-data', {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: []
+                }
+            });
+
+            // Add heatmap layer
+            map.addLayer({
+                id: 'heatmap',
+                type: 'heatmap',
+                source: 'heatmap-data',
+                maxzoom: 15,
+                paint: {
+                    'heatmap-weight': 1,
+                    'heatmap-intensity': 0.6,
+                    'heatmap-color': [
+                        'interpolate',
+                        ['linear'],
+                        ['heatmap-density'],
+                        0, 'rgba(33,102,172,0)',
+                        0.2, 'rgb(103,169,207)',
+                        0.4, 'rgb(209,229,240)',
+                        0.6, 'rgb(253,219,199)',
+                        0.8, 'rgb(239,138,98)',
+                        1, 'rgb(178,24,43)'
+                    ],
+                    'heatmap-radius': 20,
+                    'heatmap-opacity': 0.8
+                }
+            }, 'waterway-label');
+
+            // Add drawing layers
+            map.addSource('drawings', {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: []
+                }
+            });
+
+            map.addLayer({
+                id: 'drawings-line',
+                type: 'line',
+                source: 'drawings',
+                paint: {
+                    'line-color': '#667eea',
+                    'line-width': 3
+                },
+                filter: ['==', '$type', 'LineString']
+            });
+
+            map.addLayer({
+                id: 'drawings-fill',
+                type: 'fill',
+                source: 'drawings',
+                paint: {
+                    'fill-color': '#667eea',
+                    'fill-opacity': 0.3
+                },
+                filter: ['==', '$type', 'Polygon']
+            });
+
+            map.addLayer({
+                id: 'drawings-outline',
+                type: 'line',
+                source: 'drawings',
+                paint: {
+                    'line-color': '#667eea',
+                    'line-width': 2
+                },
+                filter: ['==', '$type', 'Polygon']
+            });
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Sidebar toggle
+            document.getElementById('toggle-sidebar').addEventListener('click', toggleSidebar);
+            document.getElementById('close-sidebar').addEventListener('click', closeSidebar);
+
+            // Tool buttons
+            document.getElementById('add-marker-btn').addEventListener('click', () => setTool('marker'));
+            document.getElementById('measure-btn').addEventListener('click', () => setTool('measure'));
+            document.getElementById('route-btn').addEventListener('click', () => setTool('route'));
+            document.getElementById('area-btn').addEventListener('click', () => setTool('area'));
+            document.getElementById('draw-line-btn').addEventListener('click', () => setTool('draw-line'));
+            document.getElementById('draw-polygon-btn').addEventListener('click', () => setTool('draw-polygon'));
+            document.getElementById('draw-circle-btn').addEventListener('click', () => setTool('draw-circle'));
+            document.getElementById('clear-drawings-btn').addEventListener('click', clearAllDrawings);
+            document.getElementById('heatmap-btn').addEventListener('click', toggleHeatmap);
+            document.getElementById('cluster-btn').addEventListener('click', toggleClustering);
+            document.getElementById('buffer-btn').addEventListener('click', () => setTool('buffer'));
+            document.getElementById('export-btn').addEventListener('click', exportMap);
+
+            // Controls
+            document.getElementById('locate-btn').addEventListener('click', locateUser);
+            document.getElementById('fullscreen-btn').addEventListener('click', toggleFullscreen);
+            document.getElementById('layers-btn').addEventListener('click', toggleLayers);
+
+            // Search
+            document.getElementById('search-input').addEventListener('keypress', handleSearch);
+
+            // Style selector
+            document.getElementById('style-select').addEventListener('change', changeMapStyle);
+
+            // Sliders
+            document.getElementById('opacity-slider').addEventListener('input', updateOpacity);
+            document.getElementById('animation-speed').addEventListener('input', updateAnimationSpeed);
+
+            // Info panel
+            document.getElementById('close-info').addEventListener('click', closeInfoPanel);
+
+            // Keyboard shortcuts
+            document.addEventListener('keydown', handleKeyboard);
+        }
+
+        // Map click handler
+        function handleMapClick(e) {
+            const { lng, lat } = e.lngLat;
+
+            switch (currentTool) {
+                case 'marker':
+                    addMarker(lng, lat);
+                    break;
+                case 'measure':
+                    addMeasurementPoint(lng, lat);
+                    break;
+                case 'route':
+                    addRoutePoint(lng, lat);
+                    break;
+                case 'draw-line':
+                    addDrawingPoint(lng, lat, 'LineString');
+                    break;
+                case 'draw-polygon':
+                    addDrawingPoint(lng, lat, 'Polygon');
+                    break;
+                case 'draw-circle':
+                    drawCircle(lng, lat);
+                    break;
+                default:
+                    showLocationInfo(lng, lat);
+            }
+        }
+
+        // Add marker
+        function addMarker(lng, lat) {
+            const marker = new maplibregl.Marker({
+                color: '#667eea',
+                draggable: true
+            })
+            .setLngLat([lng, lat])
+            .addTo(map);
+
+            const popup = new maplibregl.Popup({
+                closeButton: true,
+                closeOnClick: false
+            })
+            .setHTML(`
+                <div class="popup-header">Custom Marker</div>
+                <div class="popup-content">
+                    <p><strong>Coordinates:</strong> ${lat.toFixed(6)}, ${lng.toFixed(6)}</p>
+                    <p><strong>Added:</strong> ${new Date().toLocaleString()}</p>
+                    <button onclick="removeMarker(${markers.length})" style="margin-top: 10px; padding: 5px 10px; background: #ff4444; color: white; border: none; border-radius: 4px; cursor: pointer;">Remove</button>
+                </div>
+            `);
+
+            marker.setPopup(popup);
+            markers.push(marker);
+            updateMarkerCount();
+        }
+
+        // Remove marker
+        function removeMarker(index) {
+            if (markers[index]) {
+                markers[index].remove();
+                markers.splice(index, 1);
+                updateMarkerCount();
+            }
+        }
+
+        // Measurement functionality
+        function addMeasurementPoint(lng, lat) {
+            if (!measurementLine) {
+                measurementLine = {
+                    type: 'Feature',
+                    geometry: {
+                        type: 'LineString',
+                        coordinates: [[lng, lat]]
+                    },
+                    properties: {}
+                };
+            } else {
+                measurementLine.geometry.coordinates.push([lng, lat]);
+            }
+
+            updateMeasurementDisplay();
+        }
+
+        function updateMeasurementDisplay() {
+            if (!measurementLine || measurementLine.geometry.coordinates.length < 2) {
+                document.getElementById('measurement-display').classList.remove('active');
+                return;
+            }
+
+            const distance = calculateDistance(measurementLine.geometry.coordinates);
+            document.getElementById('distance-value').textContent = `${distance.toFixed(2)} km`;
+            document.getElementById('distance-stat').textContent = `${distance.toFixed(2)} km`;
+            document.getElementById('measurement-display').classList.add('active');
+
+            // Update map source
+            map.getSource('drawings').setData({
+                type: 'FeatureCollection',
+                features: [measurementLine, ...drawings]
+            });
+        }
+
+        // Calculate distance between coordinates
+        function calculateDistance(coordinates) {
+            let totalDistance = 0;
+            for (let i = 0; i < coordinates.length - 1; i++) {
+                const from = coordinates[i];
+                const to = coordinates[i + 1];
+                totalDistance += getDistanceBetweenPoints(from[1], from[0], to[1], to[0]);
+            }
+            return totalDistance;
+        }
+
+        // Haversine distance calculation
+        function getDistanceBetweenPoints(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Earth's radius in kilometers
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        // Drawing functionality
+        function addDrawingPoint(lng, lat, type) {
+            if (!isDrawing) {
+                isDrawing = true;
+                drawingPoints = [[lng, lat]];
+            } else {
+                drawingPoints.push([lng, lat]);
+            }
+
+            // Update preview
+            updateDrawingPreview(type);
+        }
+
+        function updateDrawingPreview(type) {
+            let geometry;
+            if (type === 'LineString') {
+                geometry = {
+                    type: 'LineString',
+                    coordinates: drawingPoints
+                };
+            } else if (type === 'Polygon' && drawingPoints.length >= 3) {
+                geometry = {
+                    type: 'Polygon',
+                    coordinates: [[...drawingPoints, drawingPoints[0]]]
+                };
+            } else {
+                return;
+            }
+
+            const previewFeature = {
+                type: 'Feature',
+                geometry: geometry,
+                properties: {}
+            };
+
+            map.getSource('drawings').setData({
+                type: 'FeatureCollection',
+                features: [previewFeature, ...drawings]
+            });
+        }
+
+        function finishDrawing() {
+            if (isDrawing && drawingPoints.length > 1) {
+                let geometry;
+                if (currentTool === 'draw-line') {
+                    geometry = {
+                        type: 'LineString',
+                        coordinates: drawingPoints
+                    };
+                } else if (currentTool === 'draw-polygon' && drawingPoints.length >= 3) {
+                    geometry = {
+                        type: 'Polygon',
+                        coordinates: [[...drawingPoints, drawingPoints[0]]]
+                    };
+                }
+
+                if (geometry) {
+                    drawings.push({
+                        type: 'Feature',
+                        geometry: geometry,
+                        properties: {
+                            id: Date.now(),
+                            created: new Date().toISOString()
+                        }
+                    });
+                }
+
+                isDrawing = false;
+                drawingPoints = [];
+                updateDrawingsLayer();
+            }
+        }
+
+        function updateDrawingsLayer() {
+            map.getSource('drawings').setData({
+                type: 'FeatureCollection',
+                features: drawings
+            });
+        }
+
+        // Circle drawing
+        function drawCircle(lng, lat) {
+            const radius = 1000; // 1km radius
+            const points = 64;
+            const coords = [];
+            
+            for (let i = 0; i < points; i++) {
+                const angle = (i / points) * 2 * Math.PI;
+                const dx = radius * Math.cos(angle);
+                const dy = radius * Math.sin(angle);
+                const point = [
+                    lng + dx / (111320 * Math.cos(lat * Math.PI / 180)),
+                    lat + dy / 110540
+                ];
+                coords.push(point);
+            }
+            coords.push(coords[0]); // Close the circle
+
+            const circle = {
+                type: 'Feature',
+                geometry: {
+                    type: 'Polygon',
+                    coordinates: [coords]
+                },
+                properties: {
+                    id: Date.now(),
+                    type: 'circle',
+                    center: [lng, lat],
+                    radius: radius
+                }
+            };
+
+            drawings.push(circle);
+            updateDrawingsLayer();
+        }
+
+        // Route functionality
+        function addRoutePoint(lng, lat) {
+            if (!routeData) {
+                routeData = {
+                    waypoints: [],
+                    route: null
+                };
+            }
+
+            routeData.waypoints.push([lng, lat]);
+            
+            // Add waypoint marker
+            const waypoint = new maplibregl.Marker({
+                color: '#ff6b6b'
+            })
+            .setLngLat([lng, lat])
+            .addTo(map);
+
+            if (routeData.waypoints.length >= 2) {
+                calculateRoute();
+            }
+        }
+
+        function calculateRoute() {
+            // Simulate route calculation (in real app, use routing service)
+            const waypoints = routeData.waypoints;
+            const routeCoords = [];
+            
+            for (let i = 0; i < waypoints.length - 1; i++) {
+                const from = waypoints[i];
+                const to = waypoints[i + 1];
+                
+                // Simple straight line route (replace with actual routing)
+                routeCoords.push(from);
+                routeCoords.push(to);
+            }
+
+            const routeFeature = {
+                type: 'Feature',
+                geometry: {
+                    type: 'LineString',
+                    coordinates: routeCoords
+                },
+                properties: {
+                    type: 'route'
+                }
+            };
+
+            drawings.push(routeFeature);
+            updateDrawingsLayer();
+        }
+
+        // Location info
+        function showLocationInfo(lng, lat) {
+            const infoPanel = document.getElementById('info-panel');
+            const infoContent = document.getElementById('info-content');
+            
+            infoContent.innerHTML = `
+                <div style="margin-bottom: 1rem;">
+                    <strong>Coordinates:</strong><br>
+                    Latitude: ${lat.toFixed(6)}<br>
+                    Longitude: ${lng.toFixed(6)}
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <strong>Elevation:</strong> ${Math.floor(Math.random() * 1000)} m
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <strong>Time Zone:</strong> ${Intl.DateTimeFormat().resolvedOptions().timeZone}
+                </div>
+                <div>
+                    <strong>Local Time:</strong> ${new Date().toLocaleString()}
+                </div>
+            `;
+            
+            infoPanel.classList.add('active');
+        }
+
+        // Geolocation
+        function locateUser() {
+            if (navigator.geolocation) {
+                showLoading();
+                navigator.geolocation.getCurrentPosition(
+                    position => {
+                        hideLoading();
+                        const { latitude, longitude } = position.coords;
+                        userLocation = [longitude, latitude];
+                        
+                        map.flyTo({
+                            center: userLocation,
+                            zoom: 15,
+                            duration: 2000
+                        });
+
+                        // Add user location marker
+                        new maplibregl.Marker({
+                            color: '#00ff00'
+                        })
+                        .setLngLat(userLocation)
+                        .addTo(map);
+
+                        showNotification('Location found!', 'success');
+                    },
+                    error => {
+                        hideLoading();
+                        showNotification('Unable to get location', 'error');
+                    }
+                );
+            } else {
+                showNotification('Geolocation not supported', 'error');
+            }
+        }
+
+        // Search functionality
+        function handleSearch(e) {
+            if (e.key === 'Enter') {
+                const query = e.target.value.trim();
+                if (query) {
+                    searchLocation(query);
+                }
+            }
+        }
+
+        function searchLocation(query) {
+            showLoading();
+            
+            // Simulate search (in real app, use geocoding service)
+            setTimeout(() => {
+                hideLoading();
+                
+                // Random location for demo
+                const randomLng = -180 + Math.random() * 360;
+                const randomLat = -90 + Math.random() * 180;
+                
+                map.flyTo({
+                    center: [randomLng, randomLat],
+                    zoom: 12,
+                    duration: 2000
+                });
+
+                addMarker(randomLng, randomLat);
+                showNotification(`Found: ${query}`, 'success');
+            }, 1000);
+        }
+
+        // Heatmap functionality
+        function toggleHeatmap() {
+            const button = document.getElementById('heatmap-btn');
+            const isActive = button.classList.contains('active');
+            
+            if (isActive) {
+                map.setLayoutProperty('heatmap', 'visibility', 'none');
+                button.classList.remove('active');
+            } else {
+                // Generate random heatmap data
+                const heatmapData = generateHeatmapData();
+                map.getSource('heatmap-data').setData({
+                    type: 'FeatureCollection',
+                    features: heatmapData
+                });
+                
+                map.setLayoutProperty('heatmap', 'visibility', 'visible');
+                button.classList.add('active');
+            }
+        }
+
+        function generateHeatmapData() {
+            const features = [];
+            const center = map.getCenter();
+            
+            for (let i = 0; i < 100; i++) {
+                const lng = center.lng + (Math.random() - 0.5) * 0.1;
+                const lat = center.lat + (Math.random() - 0.5) * 0.1;
+                
+                features.push({
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Point',
+                        coordinates: [lng, lat]
+                    },
+                    properties: {
+                        weight: Math.random()
+                    }
+                });
+            }
+            
+            return features;
+        }
+
+        // Clustering functionality
+        function toggleClustering() {
+            const button = document.getElementById('cluster-btn');
+            button.classList.toggle('active');
+            
+            if (button.classList.contains('active')) {
+                showNotification('Clustering enabled', 'info');
+            } else {
+                showNotification('Clustering disabled', 'info');
+            }
+        }
+
+        // Export functionality
+        function exportMap() {
+            const canvas = map.getCanvas();
+            const link = document.createElement('a');
+            link.download = 'map-export.png';
+            link.href = canvas.toDataURL();
+            link.click();
+            
+            showNotification('Map exported successfully!', 'success');
+        }
+
+        // Style management
+        function changeMapStyle() {
+            const style = document.getElementById('style-select').value;
+            const styles = {
+                streets: 'https://tiles.stadiamaps.com/styles/alidade_smooth.json',
+                satellite: 'https://tiles.stadiamaps.com/styles/alidade_satellite.json',
+                terrain: 'https://tiles.stadiamaps.com/styles/outdoors.json',
+                dark: 'https://tiles.stadiamaps.com/styles/alidade_smooth_dark.json'
+            };
+            
+            showLoading();
+            map.setStyle(styles[style]);
+            
+            map.once('styledata', () => {
+                hideLoading();
+                setupMapLayers();
+                showNotification(`Switched to ${style} style`, 'info');
+            });
+        }
+
+        // Tool management
+        function setTool(tool) {
+            // Reset previous tool
+            if (currentTool) {
+                document.getElementById(`${currentTool.replace('-', '-')}-btn`).classList.remove('active');
+            }
+            
+            if (isDrawing) {
+                finishDrawing();
+            }
+            
+            currentTool = tool;
+            document.getElementById(`${tool.replace('-', '-')}-btn`).classList.add('active');
+            
+            // Reset measurement if switching tools
+            if (tool !== 'measure') {
+                measurementLine = null;
+                document.getElementById('measurement-display').classList.remove('active');
+            }
+            
+            // Update cursor
+            map.getCanvas().style.cursor = tool === 'marker' ? 'crosshair' : 'grab';
+            
+            showNotification(`${tool.charAt(0).toUpperCase() + tool.slice(1)} tool activated`, 'info');
+        }
+
+        // Clear all drawings
+        function clearAllDrawings() {
+            drawings = [];
+            measurementLine = null;
+            routeData = null;
+            isDrawing = false;
+            drawingPoints = [];
+            
+            updateDrawingsLayer();
+            document.getElementById('measurement-display').classList.remove('active');
+            document.getElementById('distance-stat').textContent = '0 km';
+            
+            // Clear all markers
+            markers.forEach(marker => marker.remove());
+            markers = [];
+            updateMarkerCount();
+            
+            showNotification('All drawings cleared', 'info');
+        }
+
+        // UI helpers
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('collapsed');
+        }
+
+        function closeSidebar() {
+            document.getElementById('sidebar').classList.add('collapsed');
+        }
+
+        function closeInfoPanel() {
+            document.getElementById('info-panel').classList.remove('active');
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        function toggleLayers() {
+            const button = document.getElementById('layers-btn');
+            button.classList.toggle('active');
+            
+            // Toggle layer visibility
+            const layersVisible = button.classList.contains('active');
+            map.setLayoutProperty('heatmap', 'visibility', layersVisible ? 'visible' : 'none');
+        }
+
+        function updateOpacity() {
+            const opacity = document.getElementById('opacity-slider').value / 100;
+            map.setPaintProperty('heatmap', 'heatmap-opacity', opacity);
+            map.setPaintProperty('drawings-fill', 'fill-opacity', opacity * 0.3);
+        }
+
+        function updateAnimationSpeed() {
+            const speed = document.getElementById('animation-speed').value;
+            // Implementation would adjust animation durations
+            showNotification(`Animation speed set to ${speed}`, 'info');
+        }
+
+        function updateMarkerCount() {
+            document.getElementById('marker-count').textContent = markers.length;
+        }
+
+        // Keyboard shortcuts
+        function handleKeyboard(e) {
+            if (e.ctrlKey || e.metaKey) {
+                switch (e.key) {
+                    case 'z':
+                        e.preventDefault();
+                        // Undo functionality
+                        if (drawings.length > 0) {
+                            drawings.pop();
+                            updateDrawingsLayer();
+                        }
+                        break;
+                    case 's':
+                        e.preventDefault();
+                        exportMap();
+                        break;
+                    case 'f':
+                        e.preventDefault();
+                        toggleFullscreen();
+                        break;
+                }
+            }
+            
+            switch (e.key) {
+                case 'Escape':
+                    if (isDrawing) {
+                        finishDrawing();
+                    }
+                    currentTool = null;
+                    break;
+                case 'Enter':
+                    if (isDrawing) {
+                        finishDrawing();
+                    }
+                    break;
+            }
+        }
+
+        // Right-click context menu
+        function handleMapRightClick(e) {
+            e.preventDefault();
+            const { lng, lat } = e.lngLat;
+            
+            // Show context menu
+            const contextMenu = document.createElement('div');
+            contextMenu.style.cssText = `
+                position: fixed;
+                top: ${e.originalEvent.clientY}px;
+                left: ${e.originalEvent.clientX}px;
+                background: white;
+                border-radius: 8px;
+                padding: 8px;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+                z-index: 2000;
+                font-size: 14px;
+            `;
+            
+            contextMenu.innerHTML = `
+                <div style="padding: 8px 12px; cursor: pointer; border-radius: 4px;" onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='white'" onclick="addMarker(${lng}, ${lat}); document.body.removeChild(this.parentElement);">📍 Add Marker</div>
+                <div style="padding: 8px 12px; cursor: pointer; border-radius: 4px;" onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='white'" onclick="showLocationInfo(${lng}, ${lat}); document.body.removeChild(this.parentElement);">ℹ️ Location Info</div>
+                <div style="padding: 8px 12px; cursor: pointer; border-radius: 4px;" onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='white'" onclick="copyCoordinates(${lng}, ${lat}); document.body.removeChild(this.parentElement);">📋 Copy Coordinates</div>
+            `;
+            
+            document.body.appendChild(contextMenu);
+            
+            // Remove context menu on click outside
+            setTimeout(() => {
+                document.addEventListener('click', function removeMenu() {
+                    if (document.body.contains(contextMenu)) {
+                        document.body.removeChild(contextMenu);
+                    }
+                    document.removeEventListener('click', removeMenu);
+                });
+            }, 100);
+        }
+
+        function copyCoordinates(lng, lat) {
+            const coords = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+            navigator.clipboard.writeText(coords).then(() => {
+                showNotification('Coordinates copied to clipboard', 'success');
+            });
+        }
+
+        // Mouse move handler
+        function handleMapMouseMove(e) {
+            if (isDrawing) {
+                // Show preview line to cursor
+                const cursor = [e.lngLat.lng, e.lngLat.lat];
+                const previewPoints = [...drawingPoints, cursor];
+                
+                let geometry;
+                if (currentTool === 'draw-line') {
+                    geometry = {
+                        type: 'LineString',
+                        coordinates: previewPoints
+                    };
+                } else if (currentTool === 'draw-polygon' && previewPoints.length >= 3) {
+                    geometry = {
+                        type: 'Polygon',
+                        coordinates: [[...previewPoints, previewPoints[0]]]
+                    };
+                }
+                
+                if (geometry) {
+                    map.getSource('drawings').setData({
+                        type: 'FeatureCollection',
+                        features: [{
+                            type: 'Feature',
+                            geometry: geometry,
+                            properties: {}
+                        }, ...drawings]
+                    });
+                }
+            }
+        }
+
+        // Utility functions
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 12px 20px;
+                border-radius: 8px;
+                color: white;
+                font-weight: 500;
+                z-index: 3000;
+                transform: translateX(100%);
+                transition: transform 0.3s ease;
+                ${type === 'success' ? 'background: #4CAF50;' : ''}
+                ${type === 'error' ? 'background: #f44336;' : ''}
+                ${type === 'info' ? 'background: #2196F3;' : ''}
+            `;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.transform = 'translateX(0)';
+            }, 100);
+            
+            setTimeout(() => {
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    if (document.body.contains(notification)) {
+                        document.body.removeChild(notification);
+                    }
+                }, 300);
+            }, 3000);
+        }
+
+        function animateMapLoad() {
+            map.flyTo({
+                center: [-74.006, 40.7128], // New York City
+                zoom: 10,
+                duration: 3000,
+                essential: true
+            });
+        }
+
+        // Service Worker for offline caching
+        function setupServiceWorker() {
+            if ('serviceWorker' in navigator) {
+                const swCode = `
+                    const CACHE_NAME = 'map-tiles-v1';
+                    const urlsToCache = [
+                        '/',
+                        '/manifest.json'
+                    ];
+
+                    self.addEventListener('install', event => {
+                        event.waitUntil(
+                            caches.open(CACHE_NAME)
+                                .then(cache => cache.addAll(urlsToCache))
+                        );
+                    });
+
+                    self.addEventListener('fetch', event => {
+                        if (event.request.url.includes('tiles.stadiamaps.com')) {
+                            event.respondWith(
+                                caches.match(event.request)
+                                    .then(response => {
+                                        if (response) {
+                                            return response;
+                                        }
+                                        return fetch(event.request)
+                                            .then(response => {
+                                                if (!response || response.status !== 200) {
+                                                    return response;
+                                                }
+                                                const responseToCache = response.clone();
+                                                caches.open(CACHE_NAME)
+                                                    .then(cache => {
+                                                        cache.put(event.request, responseToCache);
+                                                    });
+                                                return response;
+                                            });
+                                    })
+                            );
+                        }
+                    });
+                `;
+
+                const blob = new Blob([swCode], { type: 'application/javascript' });
+                const swUrl = URL.createObjectURL(blob);
+                
+                navigator.serviceWorker.register(swUrl)
+                    .then(registration => {
+                        console.log('Service Worker registered successfully');
+                    })
+                    .catch(error => {
+                        console.log('Service Worker registration failed');
+                    });
+            }
+        }
+
+        // Initialize tooltips and help system
+        function initializeHelp() {
+            const helpButton = document.createElement('button');
+            helpButton.className = 'control-btn';
+            helpButton.innerHTML = '❓';
+            helpButton.title = 'Help & Shortcuts';
+            helpButton.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                z-index: 1000;
+            `;
+            
+            helpButton.addEventListener('click', showHelp);
+            document.body.appendChild(helpButton);
+        }
+
+        function showHelp() {
+            const helpModal = document.createElement('div');
+            helpModal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.8);
+                z-index: 3000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            `;
+            
+            helpModal.innerHTML = `
+                <div style="background: white; padding: 2rem; border-radius: 12px; max-width: 500px; max-height: 80vh; overflow-y: auto;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h2>Help & Shortcuts</h2>
+                        <button onclick="document.body.removeChild(this.closest('div').parentElement)" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
+                    </div>
+                    <div style="line-height: 1.6;">
+                        <h3>Keyboard Shortcuts:</h3>
+                        <ul>
+                            <li><strong>Ctrl/Cmd + Z:</strong> Undo last drawing</li>
+                            <li><strong>Ctrl/Cmd + S:</strong> Export map</li>
+                            <li><strong>Ctrl/Cmd + F:</strong> Toggle fullscreen</li>
+                            <li><strong>Escape:</strong> Cancel current tool</li>
+                            <li><strong>Enter:</strong> Finish drawing</li>
+                        </ul>
+                        <h3>Mouse Controls:</h3>
+                        <ul>
+                            <li><strong>Left Click:</strong> Add points/markers</li>
+                            <li><strong>Right Click:</strong> Context menu</li>
+                            <li><strong>Drag:</strong> Pan map</li>
+                            <li><strong>Scroll:</strong> Zoom in/out</li>
+                        </ul>
+                        <h3>Tools:</h3>
+                        <ul>
+                            <li><strong>Marker:</strong> Add custom pins</li>
+                            <li><strong>Measure:</strong> Calculate distances</li>
+                            <li><strong>Draw:</strong> Create lines and shapes</li>
+                            <li><strong>Route:</strong> Plan routes between points</li>
+                        </ul>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(helpModal);
+        }
+
+        // Initialize help system
+        setTimeout(initializeHelp, 1000);
+    </script>
+</body>
+</html>

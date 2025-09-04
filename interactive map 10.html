@@ -1,0 +1,1727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NVIDIA GeoSpatial Analytics Platform</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/3.6.2/maplibre-gl.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0f0f, #1a1a1a);
+            color: #ffffff;
+            overflow: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+            position: relative;
+        }
+
+        .sidebar {
+            width: 320px;
+            background: linear-gradient(180deg, #1a1a1a, #0f0f0f);
+            border-right: 1px solid #333;
+            overflow-y: auto;
+            z-index: 1000;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            background: linear-gradient(135deg, #76b900, #5a9000);
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #ffffff;
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            font-size: 12px;
+            color: #e0e0e0;
+            opacity: 0.9;
+        }
+
+        .tool-section {
+            padding: 15px;
+            border-bottom: 1px solid #333;
+        }
+
+        .tool-section h3 {
+            color: #76b900;
+            margin-bottom: 10px;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tool-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .tool-btn {
+            padding: 10px;
+            background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
+            border: 1px solid #444;
+            border-radius: 8px;
+            color: #ffffff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        .tool-btn:hover {
+            background: linear-gradient(135deg, #76b900, #5a9000);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(118, 185, 0, 0.3);
+        }
+
+        .tool-btn.active {
+            background: linear-gradient(135deg, #76b900, #5a9000);
+            box-shadow: 0 0 15px rgba(118, 185, 0, 0.5);
+        }
+
+        .input-group {
+            margin-bottom: 10px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #cccccc;
+            font-size: 12px;
+        }
+
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 8px;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: #ffffff;
+            font-size: 12px;
+        }
+
+        .input-group input:focus, .input-group select:focus {
+            outline: none;
+            border-color: #76b900;
+            box-shadow: 0 0 5px rgba(118, 185, 0, 0.3);
+        }
+
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .map-overlay {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .overlay-panel {
+            background: rgba(26, 26, 26, 0.95);
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 15px;
+            min-width: 200px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 10px;
+            background: rgba(118, 185, 0, 0.1);
+            border-radius: 4px;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #76b900;
+        }
+
+        .stat-label {
+            font-size: 10px;
+            color: #cccccc;
+            text-transform: uppercase;
+        }
+
+        .measurement-display {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 4px;
+            position: absolute;
+            top: 60px;
+            left: 20px;
+            z-index: 1000;
+            font-family: monospace;
+            font-size: 14px;
+            color: #76b900;
+            border: 1px solid #76b900;
+            display: none;
+        }
+
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 2000;
+            color: #76b900;
+            font-size: 18px;
+            display: none;
+        }
+
+        .spinner {
+            border: 3px solid #333;
+            border-top: 3px solid #76b900;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .popup-content {
+            max-width: 250px;
+        }
+
+        .popup-header {
+            font-weight: bold;
+            color: #76b900;
+            margin-bottom: 8px;
+        }
+
+        .popup-body {
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .layer-control {
+            background: rgba(26, 26, 26, 0.95);
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 15px;
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+
+        .layer-control h4 {
+            color: #76b900;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .layer-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+
+        .layer-item input[type="checkbox"] {
+            accent-color: #76b900;
+        }
+
+        .coordinates-display {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            color: #76b900;
+            border: 1px solid #444;
+            z-index: 1000;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #76b900, #5a9000);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            z-index: 2000;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .performance-monitor {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 11px;
+            color: #76b900;
+            border: 1px solid #444;
+            z-index: 1000;
+        }
+
+        .draw-controls {
+            position: absolute;
+            top: 80px;
+            left: 20px;
+            z-index: 1000;
+            display: none;
+        }
+
+        .draw-btn {
+            display: block;
+            width: 40px;
+            height: 40px;
+            background: rgba(26, 26, 26, 0.95);
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: #ffffff;
+            cursor: pointer;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .draw-btn:hover {
+            background: #76b900;
+            transform: scale(1.05);
+        }
+
+        .draw-btn.active {
+            background: #76b900;
+            box-shadow: 0 0 10px rgba(118, 185, 0, 0.5);
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 280px;
+            }
+            
+            .tool-buttons {
+                grid-template-columns: 1fr;
+            }
+            
+            .map-overlay {
+                top: 10px;
+                right: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">NVIDIA GeoSpatial</div>
+                <div class="subtitle">Advanced Mapping Platform</div>
+            </div>
+
+            <div class="tool-section">
+                <h3><i class="fas fa-map-marker-alt"></i> Markers & Pins</h3>
+                <div class="tool-buttons">
+                    <button class="tool-btn" onclick="activateTool('marker')">
+                        <i class="fas fa-map-pin"></i> Add Pin
+                    </button>
+                    <button class="tool-btn" onclick="clearMarkers()">
+                        <i class="fas fa-trash"></i> Clear All
+                    </button>
+                </div>
+                <div class="input-group">
+                    <label>Pin Type</label>
+                    <select id="markerType">
+                        <option value="default">Default</option>
+                        <option value="datacenter">Data Center</option>
+                        <option value="office">Office</option>
+                        <option value="research">Research Facility</option>
+                        <option value="event">Event Location</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="tool-section">
+                <h3><i class="fas fa-route"></i> Navigation</h3>
+                <div class="tool-buttons">
+                    <button class="tool-btn" onclick="activateTool('route')">
+                        <i class="fas fa-directions"></i> Route
+                    </button>
+                    <button class="tool-btn" onclick="getCurrentLocation()">
+                        <i class="fas fa-location-arrow"></i> My Location
+                    </button>
+                </div>
+                <div class="input-group">
+                    <label>Route Type</label>
+                    <select id="routeType">
+                        <option value="driving">Driving</option>
+                        <option value="walking">Walking</option>
+                        <option value="cycling">Cycling</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="tool-section">
+                <h3><i class="fas fa-ruler"></i> Measurements</h3>
+                <div class="tool-buttons">
+                    <button class="tool-btn" onclick="activateTool('measure')">
+                        <i class="fas fa-ruler-combined"></i> Distance
+                    </button>
+                    <button class="tool-btn" onclick="activateTool('area')">
+                        <i class="fas fa-vector-square"></i> Area
+                    </button>
+                </div>
+            </div>
+
+            <div class="tool-section">
+                <h3><i class="fas fa-draw-polygon"></i> Drawing Tools</h3>
+                <div class="tool-buttons">
+                    <button class="tool-btn" onclick="activateTool('polygon')">
+                        <i class="fas fa-draw-polygon"></i> Polygon
+                    </button>
+                    <button class="tool-btn" onclick="activateTool('circle')">
+                        <i class="fas fa-circle"></i> Circle
+                    </button>
+                    <button class="tool-btn" onclick="activateTool('line')">
+                        <i class="fas fa-minus"></i> Line
+                    </button>
+                    <button class="tool-btn" onclick="clearDrawings()">
+                        <i class="fas fa-eraser"></i> Clear
+                    </button>
+                </div>
+            </div>
+
+            <div class="tool-section">
+                <h3><i class="fas fa-fire"></i> Analytics</h3>
+                <div class="tool-buttons">
+                    <button class="tool-btn" onclick="generateHeatmap()">
+                        <i class="fas fa-fire"></i> Heatmap
+                    </button>
+                    <button class="tool-btn" onclick="clusterAnalysis()">
+                        <i class="fas fa-project-diagram"></i> Clusters
+                    </button>
+                </div>
+                <div class="input-group">
+                    <label>Heatmap Intensity</label>
+                    <input type="range" id="heatmapIntensity" min="0.1" max="1" step="0.1" value="0.6">
+                </div>
+            </div>
+
+            <div class="tool-section">
+                <h3><i class="fas fa-search"></i> Search & Analysis</h3>
+                <div class="input-group">
+                    <label>Search Location</label>
+                    <input type="text" id="searchInput" placeholder="Enter location...">
+                </div>
+                <div class="tool-buttons">
+                    <button class="tool-btn" onclick="searchLocation()">
+                        <i class="fas fa-search"></i> Search
+                    </button>
+                    <button class="tool-btn" onclick="exportData()">
+                        <i class="fas fa-download"></i> Export
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="map-container">
+            <div id="map"></div>
+            
+            <div class="layer-control">
+                <h4>Map Layers</h4>
+                <div class="layer-item">
+                    <input type="checkbox" id="satellite" onchange="toggleLayer('satellite')">
+                    <label for="satellite">Satellite</label>
+                </div>
+                <div class="layer-item">
+                    <input type="checkbox" id="terrain" onchange="toggleLayer('terrain')">
+                    <label for="terrain">Terrain</label>
+                </div>
+                <div class="layer-item">
+                    <input type="checkbox" id="traffic" onchange="toggleLayer('traffic')">
+                    <label for="traffic">Traffic</label>
+                </div>
+                <div class="layer-item">
+                    <input type="checkbox" id="3d" onchange="toggleLayer('3d')">
+                    <label for="3d">3D Buildings</label>
+                </div>
+            </div>
+
+            <div class="map-overlay">
+                <div class="overlay-panel">
+                    <h4 style="color: #76b900; margin-bottom: 10px;">Analytics Dashboard</h4>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-value" id="markerCount">0</div>
+                            <div class="stat-label">Markers</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="routeCount">0</div>
+                            <div class="stat-label">Routes</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="totalDistance">0km</div>
+                            <div class="stat-label">Distance</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="activeUsers">1</div>
+                            <div class="stat-label">Active</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="coordinates-display" id="coordinates">
+                Lat: 0.0000, Lng: 0.0000
+            </div>
+
+            <div class="measurement-display" id="measurementDisplay"></div>
+
+            <div class="performance-monitor" id="performanceMonitor">
+                FPS: 60 | Memory: 45MB | Tiles: 124
+            </div>
+        </div>
+    </div>
+
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        Processing...
+    </div>
+
+    <div class="notification" id="notification"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/3.6.2/maplibre-gl.min.js"></script>
+    <script>
+        // Global variables
+        let map;
+        let currentTool = null;
+        let markers = [];
+        let routes = [];
+        let drawings = [];
+        let heatmapData = [];
+        let measurementPoints = [];
+        let userLocation = null;
+        let routePoints = [];
+        let isDrawing = false;
+        let drawingPath = [];
+
+        // Initialize the map
+        function initMap() {
+            map = new maplibregl.Map({
+                container: 'map',
+                style: 'https://demotiles.maplibre.org/style.json',
+                center: [-74.006, 40.7128], // New York City
+                zoom: 12,
+                pitch: 45,
+                bearing: 0
+            });
+
+            map.addControl(new maplibregl.NavigationControl());
+            map.addControl(new maplibregl.ScaleControl());
+            map.addControl(new maplibregl.FullscreenControl());
+
+            // Add event listeners
+            map.on('load', onMapLoad);
+            map.on('click', onMapClick);
+            map.on('mousemove', onMapMouseMove);
+            map.on('contextmenu', onMapRightClick);
+            
+            // Add GPU performance monitoring
+            startPerformanceMonitoring();
+        }
+
+        function onMapLoad() {
+            // Add 3D buildings layer
+            map.addLayer({
+                'id': '3d-buildings',
+                'source': 'composite',
+                'source-layer': 'building',
+                'filter': ['==', 'extrude', 'true'],
+                'type': 'fill-extrusion',
+                'minzoom': 15,
+                'paint': {
+                    'fill-extrusion-color': '#aaa',
+                    'fill-extrusion-height': [
+                        'interpolate',
+                        ['linear'],
+                        ['zoom'],
+                        15,
+                        0,
+                        15.05,
+                        ['get', 'height']
+                    ],
+                    'fill-extrusion-base': [
+                        'interpolate',
+                        ['linear'],
+                        ['zoom'],
+                        15,
+                        0,
+                        15.05,
+                        ['get', 'min_height']
+                    ],
+                    'fill-extrusion-opacity': 0.8
+                }
+            });
+
+            // Add data sources for analytics
+            map.addSource('heatmap-data', {
+                'type': 'geojson',
+                'data': {
+                    'type': 'FeatureCollection',
+                    'features': []
+                }
+            });
+
+            // Add sample data points for demonstration
+            generateSampleData();
+            
+            showNotification('Map loaded successfully! Ready for geospatial analysis.');
+        }
+
+        function onMapClick(e) {
+            const coords = [e.lngLat.lng, e.lngLat.lat];
+            
+            switch(currentTool) {
+                case 'marker':
+                    addMarker(coords);
+                    break;
+                case 'route':
+                    addRoutePoint(coords);
+                    break;
+                case 'measure':
+                    addMeasurementPoint(coords);
+                    break;
+                case 'polygon':
+                    addPolygonPoint(coords);
+                    break;
+                case 'circle':
+                    createCircle(coords);
+                    break;
+                case 'line':
+                    addLinePoint(coords);
+                    break;
+            }
+        }
+
+        function onMapMouseMove(e) {
+            // Update coordinate display
+            document.getElementById('coordinates').innerHTML = 
+                `Lat: ${e.lngLat.lat.toFixed(4)}, Lng: ${e.lngLat.lng.toFixed(4)}`;
+        }
+
+        function onMapRightClick(e) {
+            // Context menu functionality
+            if (currentTool) {
+                finishDrawing();
+            }
+        }
+
+        function activateTool(tool) {
+            // Reset previous tool
+            if (currentTool) {
+                document.querySelector(`[onclick="activateTool('${currentTool}')"]`).classList.remove('active');
+            }
+            
+            currentTool = tool;
+            document.querySelector(`[onclick="activateTool('${tool}')"]`).classList.add('active');
+            
+            // Update cursor
+            map.getCanvas().style.cursor = tool === 'marker' ? 'crosshair' : 'default';
+            
+            showNotification(`${tool.charAt(0).toUpperCase() + tool.slice(1)} tool activated`);
+        }
+
+        function addMarker(coords) {
+            const markerType = document.getElementById('markerType').value;
+            const markerColor = getMarkerColor(markerType);
+            
+            // Create custom marker element
+            const markerElement = document.createElement('div');
+            markerElement.style.cssText = `
+                width: 20px;
+                height: 20px;
+                background: ${markerColor};
+                border: 2px solid white;
+                border-radius: 50%;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                cursor: pointer;
+                position: relative;
+            `;
+            
+            const marker = new maplibregl.Marker(markerElement)
+                .setLngLat(coords)
+                .addTo(map);
+
+            // Add popup
+            const popup = new maplibregl.Popup({
+                offset: 25,
+                closeOnClick: false
+            }).setHTML(`
+                <div class="popup-content">
+                    <div class="popup-header">${markerType.charAt(0).toUpperCase() + markerType.slice(1)} Marker</div>
+                    <div class="popup-body">
+                        <strong>Coordinates:</strong><br>
+                        Lat: ${coords[1].toFixed(6)}<br>
+                        Lng: ${coords[0].toFixed(6)}<br>
+                        <strong>Type:</strong> ${markerType}<br>
+                        <strong>Added:</strong> ${new Date().toLocaleTimeString()}
+                    </div>
+                </div>
+            `);
+
+            marker.setPopup(popup);
+            markers.push({marker, coords, type: markerType});
+            
+            updateStats();
+            showNotification(`${markerType} marker added`);
+        }
+
+        function getMarkerColor(type) {
+            const colors = {
+                'default': '#76b900',
+                'datacenter': '#ff4444',
+                'office': '#4488ff',
+                'research': '#ff8800',
+                'event': '#8844ff'
+            };
+            return colors[type] || colors['default'];
+        }
+
+        function addRoutePoint(coords) {
+            routePoints.push(coords);
+            
+            // Add temporary marker for route point
+            const routeMarker = new maplibregl.Marker({
+                color: '#ff4444'
+            }).setLngLat(coords).addTo(map);
+            
+            if (routePoints.length >= 2) {
+                calculateRoute();
+            }
+            
+            showNotification(`Route point ${routePoints.length} added`);
+        }
+
+        function calculateRoute() {
+            const routeType = document.getElementById('routeType').value;
+            
+            // Simulate route calculation with straight line for demo
+            const routeData = {
+                'type': 'Feature',
+                'properties': {},
+                'geometry': {
+                    'type': 'LineString',
+                    'coordinates': routePoints
+                }
+            };
+
+            // Add route to map
+            if (map.getSource('route-' + routes.length)) {
+                map.removeSource('route-' + routes.length);
+            }
+
+            map.addSource('route-' + routes.length, {
+                'type': 'geojson',
+                'data': routeData
+            });
+
+            map.addLayer({
+                'id': 'route-' + routes.length,
+                'type': 'line',
+                'source': 'route-' + routes.length,
+                'layout': {
+                    'line-join': 'round',
+                    'line-cap': 'round'
+                },
+                'paint': {
+                    'line-color': '#76b900',
+                    'line-width': 5,
+                    'line-opacity': 0.8
+                }
+            });
+
+            // Calculate distance
+            const distance = calculateDistance(routePoints);
+            routes.push({
+                points: [...routePoints],
+                distance: distance,
+                type: routeType
+            });
+
+            routePoints = [];
+            updateStats();
+            showNotification(`${routeType} route calculated: ${distance.toFixed(2)} km`);
+        }
+
+        function addMeasurementPoint(coords) {
+            measurementPoints.push(coords);
+            
+            // Add measurement marker
+            const measureMarker = new maplibregl.Marker({
+                color: '#ffff00'
+            }).setLngLat(coords).addTo(map);
+            
+            if (measurementPoints.length >= 2) {
+                const distance = calculateDistance(measurementPoints);
+                document.getElementById('measurementDisplay').style.display = 'block';
+                document.getElementById('measurementDisplay').innerHTML = 
+                    `Distance: ${distance.toFixed(2)} km`;
+                
+                // Draw measurement line
+                const measurementLine = {
+                    'type': 'Feature',
+                    'properties': {},
+                    'geometry': {
+                        'type': 'LineString',
+                        'coordinates': measurementPoints
+                    }
+                };
+
+                map.addSource('measurement-line', {
+                    'type': 'geojson',
+                    'data': measurementLine
+                });
+
+                map.addLayer({
+                    'id': 'measurement-line',
+                    'type': 'line',
+                    'source': 'measurement-line',
+                    'layout': {
+                        'line-join': 'round',
+                        'line-cap': 'round'
+                    },
+                    'paint': {
+                        'line-color': '#ffff00',
+                        'line-width': 3,
+                        'line-dasharray': [2, 2]
+                    }
+                });
+
+                measurementPoints = [];
+                showNotification(`Distance measured: ${distance.toFixed(2)} km`);
+            }
+        }
+
+        function calculateDistance(points) {
+            let totalDistance = 0;
+            for (let i = 0; i < points.length - 1; i++) {
+                totalDistance += getDistanceBetweenPoints(points[i], points[i + 1]);
+            }
+            return totalDistance;
+        }
+
+        function getDistanceBetweenPoints(point1, point2) {
+            const R = 6371; // Earth's radius in km
+            const dLat = (point2[1] - point1[1]) * Math.PI / 180;
+            const dLon = (point2[0] - point1[0]) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                     Math.cos(point1[1] * Math.PI / 180) * Math.cos(point2[1] * Math.PI / 180) *
+                     Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        function generateHeatmap() {
+            // Generate sample heatmap data
+            const center = map.getCenter();
+            const heatmapFeatures = [];
+            
+            for (let i = 0; i < 100; i++) {
+                const lat = center.lat + (Math.random() - 0.5) * 0.1;
+                const lng = center.lng + (Math.random() - 0.5) * 0.1;
+                const intensity = Math.random();
+                
+                heatmapFeatures.push({
+                    'type': 'Feature',
+                    'properties': {
+                        'intensity': intensity
+                    },
+                    'geometry': {
+                        'type': 'Point',
+                        'coordinates': [lng, lat]
+                    }
+                });
+            }
+
+            // Update heatmap source
+            map.getSource('heatmap-data').setData({
+                'type': 'FeatureCollection',
+                'features': heatmapFeatures
+            });
+
+            // Add heatmap layer if it doesn't exist
+            if (!map.getLayer('heatmap-layer')) {
+                map.addLayer({
+                    'id': 'heatmap-layer',
+                    'type': 'heatmap',
+                    'source': 'heatmap-data',
+                    'maxzoom': 15,
+                    'paint': {
+                        'heatmap-weight': [
+                            'interpolate',
+                            ['linear'],
+                            ['get', 'intensity'],
+                            0, 0,
+                            1, 1
+                        ],
+                        'heatmap-intensity': [
+                            'interpolate',
+                            ['linear'],
+                            ['zoom'],
+                            0, 1,
+                            15, 3
+                        ],
+                        'heatmap-color': [
+                            'interpolate',
+                            ['linear'],
+                            ['heatmap-density'],
+                            0, 'rgba(33,102,172,0)',
+                            0.2, 'rgb(103,169,207)',
+                            0.4, 'rgb(209,229,240)',
+                            0.6, 'rgb(253,219,199)',
+                            0.8, 'rgb(239,138,98)',
+                            1, 'rgb(178,24,43)'
+                        ],
+                        'heatmap-radius': [
+                            'interpolate',
+                            ['linear'],
+                            ['zoom'],
+                            0, 2,
+                            15, 20
+                        ],
+                        'heatmap-opacity': parseFloat(document.getElementById('heatmapIntensity').value)
+                    }
+                });
+            }
+
+            showNotification('Heatmap generated with GPU acceleration');
+        }
+
+        function clusterAnalysis() {
+            // Perform clustering analysis on existing markers
+            if (markers.length < 2) {
+                showNotification('Need at least 2 markers for cluster analysis');
+                return;
+            }
+
+            const clusters = performKMeansClustering(markers.map(m => m.coords), 3);
+            
+            // Visualize clusters
+            clusters.forEach((cluster, index) => {
+                const color = ['#ff4444', '#44ff44', '#4444ff'][index % 3];
+                
+                // Add cluster center marker
+                const centerMarker = new maplibregl.Marker({
+                    color: color,
+                    scale: 1.5
+                }).setLngLat(cluster.center)
+                .setPopup(new maplibregl.Popup().setHTML(`
+                    <div class="popup-content">
+                        <div class="popup-header">Cluster ${index + 1}</div>
+                        <div class="popup-body">
+                            <strong>Points:</strong> ${cluster.points.length}<br>
+                            <strong>Center:</strong> ${cluster.center[1].toFixed(4)}, ${cluster.center[0].toFixed(4)}
+                        </div>
+                    </div>
+                `))
+                .addTo(map);
+
+                // Add cluster boundary
+                const clusterBoundary = createClusterBoundary(cluster.points);
+                map.addSource(`cluster-${index}`, {
+                    'type': 'geojson',
+                    'data': clusterBoundary
+                });
+
+                map.addLayer({
+                    'id': `cluster-${index}`,
+                    'type': 'fill',
+                    'source': `cluster-${index}`,
+                    'paint': {
+                        'fill-color': color,
+                        'fill-opacity': 0.2
+                    }
+                });
+
+                map.addLayer({
+                    'id': `cluster-border-${index}`,
+                    'type': 'line',
+                    'source': `cluster-${index}`,
+                    'paint': {
+                        'line-color': color,
+                        'line-width': 2
+                    }
+                });
+            });
+
+            showNotification(`Cluster analysis complete: ${clusters.length} clusters identified`);
+        }
+
+        function performKMeansClustering(points, k) {
+            // Simple K-means clustering implementation
+            const clusters = [];
+            
+            // Initialize cluster centers randomly
+            for (let i = 0; i < k; i++) {
+                const randomPoint = points[Math.floor(Math.random() * points.length)];
+                clusters.push({
+                    center: [...randomPoint],
+                    points: []
+                });
+            }
+
+            // Perform clustering iterations
+            for (let iteration = 0; iteration < 10; iteration++) {
+                // Clear previous assignments
+                clusters.forEach(cluster => cluster.points = []);
+
+                // Assign points to nearest cluster
+                points.forEach(point => {
+                    let minDistance = Infinity;
+                    let nearestCluster = 0;
+
+                    clusters.forEach((cluster, index) => {
+                        const distance = getDistanceBetweenPoints(point, cluster.center);
+                        if (distance < minDistance) {
+                            minDistance = distance;
+                            nearestCluster = index;
+                        }
+                    });
+
+                    clusters[nearestCluster].points.push(point);
+                });
+
+                // Update cluster centers
+                clusters.forEach(cluster => {
+                    if (cluster.points.length > 0) {
+                        const avgLng = cluster.points.reduce((sum, p) => sum + p[0], 0) / cluster.points.length;
+                        const avgLat = cluster.points.reduce((sum, p) => sum + p[1], 0) / cluster.points.length;
+                        cluster.center = [avgLng, avgLat];
+                    }
+                });
+            }
+
+            return clusters;
+        }
+
+        function createClusterBoundary(points) {
+            // Create a simple convex hull for cluster boundary
+            if (points.length < 3) return null;
+
+            const hull = convexHull(points);
+            return {
+                'type': 'Feature',
+                'properties': {},
+                'geometry': {
+                    'type': 'Polygon',
+                    'coordinates': [hull.concat([hull[0]])]
+                }
+            };
+        }
+
+        function convexHull(points) {
+            // Simple convex hull algorithm
+            points.sort((a, b) => a[0] - b[0]);
+            
+            const lower = [];
+            for (let i = 0; i < points.length; i++) {
+                while (lower.length >= 2 && cross(lower[lower.length-2], lower[lower.length-1], points[i]) <= 0) {
+                    lower.pop();
+                }
+                lower.push(points[i]);
+            }
+
+            const upper = [];
+            for (let i = points.length - 1; i >= 0; i--) {
+                while (upper.length >= 2 && cross(upper[upper.length-2], upper[upper.length-1], points[i]) <= 0) {
+                    upper.pop();
+                }
+                upper.push(points[i]);
+            }
+
+            upper.pop();
+            lower.pop();
+            return lower.concat(upper);
+        }
+
+        function cross(o, a, b) {
+            return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+        }
+
+        function getCurrentLocation() {
+            if (navigator.geolocation) {
+                showLoading();
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        hideLoading();
+                        const coords = [position.coords.longitude, position.coords.latitude];
+                        userLocation = coords;
+                        
+                        // Add user location marker
+                        const userMarker = new maplibregl.Marker({
+                            color: '#00ff00',
+                            scale: 1.2
+                        }).setLngLat(coords)
+                        .setPopup(new maplibregl.Popup().setHTML(`
+                            <div class="popup-content">
+                                <div class="popup-header">Your Location</div>
+                                <div class="popup-body">
+                                    <strong>Coordinates:</strong><br>
+                                    Lat: ${coords[1].toFixed(6)}<br>
+                                    Lng: ${coords[0].toFixed(6)}<br>
+                                    <strong>Accuracy:</strong> ${position.coords.accuracy}m
+                                </div>
+                            </div>
+                        `))
+                        .addTo(map);
+
+                        // Fly to user location
+                        map.flyTo({
+                            center: coords,
+                            zoom: 15,
+                            pitch: 60,
+                            bearing: 0
+                        });
+
+                        showNotification('Location found successfully');
+                    },
+                    (error) => {
+                        hideLoading();
+                        showNotification('Location access denied or unavailable');
+                    }
+                );
+            } else {
+                showNotification('Geolocation not supported by this browser');
+            }
+        }
+
+        function searchLocation() {
+            const query = document.getElementById('searchInput').value;
+            if (!query) return;
+
+            showLoading();
+            
+            // Simulate geocoding API call
+            setTimeout(() => {
+                hideLoading();
+                
+                // For demo purposes, use a random location near current center
+                const center = map.getCenter();
+                const randomCoords = [
+                    center.lng + (Math.random() - 0.5) * 0.1,
+                    center.lat + (Math.random() - 0.5) * 0.1
+                ];
+
+                // Add search result marker
+                const searchMarker = new maplibregl.Marker({
+                    color: '#ff8800'
+                }).setLngLat(randomCoords)
+                .setPopup(new maplibregl.Popup().setHTML(`
+                    <div class="popup-content">
+                        <div class="popup-header">Search Result</div>
+                        <div class="popup-body">
+                            <strong>Query:</strong> ${query}<br>
+                            <strong>Location:</strong> ${randomCoords[1].toFixed(4)}, ${randomCoords[0].toFixed(4)}
+                        </div>
+                    </div>
+                `))
+                .addTo(map);
+
+                map.flyTo({
+                    center: randomCoords,
+                    zoom: 16
+                });
+
+                showNotification(`Location found: ${query}`);
+            }, 1000);
+        }
+
+        function toggleLayer(layerType) {
+            const checkbox = document.getElementById(layerType);
+            
+            switch(layerType) {
+                case 'satellite':
+                    if (checkbox.checked) {
+                        map.setStyle('https://demotiles.maplibre.org/satellite.json');
+                    } else {
+                        map.setStyle('https://demotiles.maplibre.org/style.json');
+                    }
+                    break;
+                case 'terrain':
+                    // Toggle terrain visualization
+                    if (checkbox.checked) {
+                        map.setPitch(60);
+                    } else {
+                        map.setPitch(0);
+                    }
+                    break;
+                case 'traffic':
+                    // Simulate traffic layer
+                    if (checkbox.checked) {
+                        generateTrafficData();
+                    } else {
+                        if (map.getLayer('traffic-layer')) {
+                            map.removeLayer('traffic-layer');
+                        }
+                    }
+                    break;
+                case '3d':
+                    // Toggle 3D buildings
+                    if (checkbox.checked) {
+                        map.setPitch(45);
+                        if (map.getLayer('3d-buildings')) {
+                            map.setLayoutProperty('3d-buildings', 'visibility', 'visible');
+                        }
+                    } else {
+                        map.setPitch(0);
+                        if (map.getLayer('3d-buildings')) {
+                            map.setLayoutProperty('3d-buildings', 'visibility', 'none');
+                        }
+                    }
+                    break;
+            }
+        }
+
+        function generateTrafficData() {
+            // Generate simulated traffic data
+            const center = map.getCenter();
+            const trafficFeatures = [];
+            
+            for (let i = 0; i < 20; i++) {
+                const startLng = center.lng + (Math.random() - 0.5) * 0.1;
+                const startLat = center.lat + (Math.random() - 0.5) * 0.1;
+                const endLng = startLng + (Math.random() - 0.5) * 0.02;
+                const endLat = startLat + (Math.random() - 0.5) * 0.02;
+                
+                const congestionLevel = Math.random();
+                const color = congestionLevel > 0.7 ? '#ff0000' : 
+                             congestionLevel > 0.4 ? '#ffaa00' : '#00ff00';
+                
+                trafficFeatures.push({
+                    'type': 'Feature',
+                    'properties': {
+                        'congestion': congestionLevel,
+                        'color': color
+                    },
+                    'geometry': {
+                        'type': 'LineString',
+                        'coordinates': [[startLng, startLat], [endLng, endLat]]
+                    }
+                });
+            }
+
+            map.addSource('traffic-data', {
+                'type': 'geojson',
+                'data': {
+                    'type': 'FeatureCollection',
+                    'features': trafficFeatures
+                }
+            });
+
+            map.addLayer({
+                'id': 'traffic-layer',
+                'type': 'line',
+                'source': 'traffic-data',
+                'paint': {
+                    'line-color': ['get', 'color'],
+                    'line-width': 4,
+                    'line-opacity': 0.8
+                }
+            });
+        }
+
+        function addPolygonPoint(coords) {
+            if (!isDrawing) {
+                isDrawing = true;
+                drawingPath = [coords];
+            } else {
+                drawingPath.push(coords);
+            }
+            
+            // Add temporary marker
+            new maplibregl.Marker({
+                color: '#8844ff',
+                scale: 0.7
+            }).setLngLat(coords).addTo(map);
+            
+            // Update drawing preview
+            updateDrawingPreview('polygon');
+        }
+
+        function addLinePoint(coords) {
+            if (!isDrawing) {
+                isDrawing = true;
+                drawingPath = [coords];
+            } else {
+                drawingPath.push(coords);
+            }
+            
+            // Add temporary marker
+            new maplibregl.Marker({
+                color: '#ff4488',
+                scale: 0.7
+            }).setLngLat(coords).addTo(map);
+            
+            // Update drawing preview
+            updateDrawingPreview('line');
+        }
+
+        function createCircle(coords) {
+            const radius = 1000; // 1km radius
+            const circleCoords = [];
+            const steps = 64;
+            
+            for (let i = 0; i < steps; i++) {
+                const angle = (i / steps) * 2 * Math.PI;
+                const dx = radius * Math.cos(angle);
+                const dy = radius * Math.sin(angle);
+                
+                const lat = coords[1] + (dy / 111320);
+                const lng = coords[0] + (dx / (111320 * Math.cos(coords[1] * Math.PI / 180)));
+                
+                circleCoords.push([lng, lat]);
+            }
+            
+            // Close the circle
+            circleCoords.push(circleCoords[0]);
+            
+            const circleFeature = {
+                'type': 'Feature',
+                'properties': {
+                    'type': 'circle',
+                    'radius': radius
+                },
+                'geometry': {
+                    'type': 'Polygon',
+                    'coordinates': [circleCoords]
+                }
+            };
+            
+            const sourceId = 'circle-' + drawings.length;
+            map.addSource(sourceId, {
+                'type': 'geojson',
+                'data': circleFeature
+            });
+            
+            map.addLayer({
+                'id': sourceId + '-fill',
+                'type': 'fill',
+                'source': sourceId,
+                'paint': {
+                    'fill-color': '#76b900',
+                    'fill-opacity': 0.3
+                }
+            });
+            
+            map.addLayer({
+                'id': sourceId + '-border',
+                'type': 'line',
+                'source': sourceId,
+                'paint': {
+                    'line-color': '#76b900',
+                    'line-width': 2
+                }
+            });
+            
+            drawings.push({
+                id: sourceId,
+                type: 'circle',
+                feature: circleFeature
+            });
+            
+            showNotification(`Circle created with ${(radius/1000).toFixed(1)}km radius`);
+        }
+
+        function updateDrawingPreview(type) {
+            if (drawingPath.length < 2) return;
+            
+            const previewId = 'drawing-preview';
+            
+            // Remove existing preview
+            if (map.getLayer(previewId)) {
+                map.removeLayer(previewId);
+            }
+            if (map.getSource(previewId)) {
+                map.removeSource(previewId);
+            }
+            
+            let geometry;
+            if (type === 'polygon' && drawingPath.length >= 3) {
+                geometry = {
+                    'type': 'Polygon',
+                    'coordinates': [drawingPath.concat([drawingPath[0]])]
+                };
+            } else {
+                geometry = {
+                    'type': 'LineString',
+                    'coordinates': drawingPath
+                };
+            }
+            
+            map.addSource(previewId, {
+                'type': 'geojson',
+                'data': {
+                    'type': 'Feature',
+                    'properties': {},
+                    'geometry': geometry
+                }
+            });
+            
+            map.addLayer({
+                'id': previewId,
+                'type': type === 'polygon' ? 'fill' : 'line',
+                'source': previewId,
+                'paint': type === 'polygon' ? {
+                    'fill-color': '#76b900',
+                    'fill-opacity': 0.3
+                } : {
+                    'line-color': '#76b900',
+                    'line-width': 3,
+                    'line-dasharray': [2, 2]
+                }
+            });
+        }
+
+        function finishDrawing() {
+            if (!isDrawing || drawingPath.length < 2) return;
+            
+            const sourceId = currentTool + '-' + drawings.length;
+            let geometry;
+            
+            if (currentTool === 'polygon' && drawingPath.length >= 3) {
+                geometry = {
+                    'type': 'Polygon',
+                    'coordinates': [drawingPath.concat([drawingPath[0]])]
+                };
+            } else {
+                geometry = {
+                    'type': 'LineString',
+                    'coordinates': drawingPath
+                };
+            }
+            
+            const feature = {
+                'type': 'Feature',
+                'properties': {
+                    'type': currentTool
+                },
+                'geometry': geometry
+            };
+            
+            map.addSource(sourceId, {
+                'type': 'geojson',
+                'data': feature
+            });
+            
+            if (currentTool === 'polygon') {
+                map.addLayer({
+                    'id': sourceId + '-fill',
+                    'type': 'fill',
+                    'source': sourceId,
+                    'paint': {
+                        'fill-color': '#76b900',
+                        'fill-opacity': 0.3
+                    }
+                });
+                
+                map.addLayer({
+                    'id': sourceId + '-border',
+                    'type': 'line',
+                    'source': sourceId,
+                    'paint': {
+                        'line-color': '#76b900',
+                        'line-width': 2
+                    }
+                });
+            } else {
+                map.addLayer({
+                    'id': sourceId,
+                    'type': 'line',
+                    'source': sourceId,
+                    'paint': {
+                        'line-color': '#76b900',
+                        'line-width': 3
+                    }
+                });
+            }
+            
+            drawings.push({
+                id: sourceId,
+                type: currentTool,
+                feature: feature
+            });
+            
+            // Clean up
+            isDrawing = false;
+            drawingPath = [];
+            
+            // Remove preview
+            if (map.getLayer('drawing-preview')) {
+                map.removeLayer('drawing-preview');
+            }
+            if (map.getSource('drawing-preview')) {
+                map.removeSource('drawing-preview');
+            }
+            
+            showNotification(`${currentTool} completed`);
+        }
+
+        function clearMarkers() {
+            markers.forEach(markerObj => {
+                markerObj.marker.remove();
+            });
+            markers = [];
+            updateStats();
+            showNotification('All markers cleared');
+        }
+
+        function clearDrawings() {
+            drawings.forEach(drawing => {
+                if (map.getLayer(drawing.id)) {
+                    map.removeLayer(drawing.id);
+                }
+                if (map.getLayer(drawing.id + '-fill')) {
+                    map.removeLayer(drawing.id + '-fill');
+                }
+                if (map.getLayer(drawing.id + '-border')) {
+                    map.removeLayer(drawing.id + '-border');
+                }
+                if (map.getSource(drawing.id)) {
+                    map.removeSource(drawing.id);
+                }
+            });
+            drawings = [];
+            showNotification('All drawings cleared');
+        }
+
+        function exportData() {
+            const data = {
+                markers: markers.map(m => ({
+                    coordinates: m.coords,
+                    type: m.type
+                })),
+                routes: routes,
+                drawings: drawings.map(d => ({
+                    type: d.type,
+                    feature: d.feature
+                })),
+                mapCenter: map.getCenter(),
+                mapZoom: map.getZoom()
+            };
+            
+            const dataStr = JSON.stringify(data, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'nvidia-geospatial-data.json';
+            a.click();
+            
+            URL.revokeObjectURL(url);
+            showNotification('Data exported successfully');
+        }
+
+        function generateSampleData() {
+            // Add some sample NVIDIA-related locations
+            const nvidiaLocations = [
+                { coords: [-121.9658, 37.3541], type: 'datacenter', name: 'NVIDIA HQ' },
+                { coords: [-74.0060, 40.7128], type: 'office', name: 'NYC Office' },
+                { coords: [-122.4194, 37.7749], type: 'research', name: 'SF Research' },
+                { coords: [-87.6298, 41.8781], type: 'event', name: 'GTC Chicago' }
+            ];
+            
+            // Add sample markers automatically
+            setTimeout(() => {
+                nvidiaLocations.forEach(location => {
+                    const markerElement = document.createElement('div');
+                    markerElement.style.cssText = `
+                        width: 20px;
+                        height: 20px;
+                        background: ${getMarkerColor(location.type)};
+                        border: 2px solid white;
+                        border-radius: 50%;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                    `;
+                    
+                    const marker = new maplibregl.Marker(markerElement)
+                        .setLngLat(location.coords)
+                        .setPopup(new maplibregl.Popup().setHTML(`
+                            <div class="popup-content">
+                                <div class="popup-header">${location.name}</div>
+                                <div class="popup-body">
+                                    <strong>Type:</strong> ${location.type}<br>
+                                    <strong>Coordinates:</strong><br>
+                                    ${location.coords[1].toFixed(4)}, ${location.coords[0].toFixed(4)}
+                                </div>
+                            </div>
+                        `))
+                        .addTo(map);
+                    
+                    markers.push({
+                        marker: marker,
+                        coords: location.coords,
+                        type: location.type
+                    });
+                });
+                
+                updateStats();
+            }, 1000);
+        }
+
+        function updateStats() {
+            document.getElementById('markerCount').textContent = markers.length;
+            document.getElementById('routeCount').textContent = routes.length;
+            
+            const totalDistance = routes.reduce((sum, route) => sum + route.distance, 0);
+            document.getElementById('totalDistance').textContent = totalDistance.toFixed(1) + 'km';
+        }
+
+        function showNotification(message) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        function startPerformanceMonitoring() {
+            setInterval(() => {
+                const performance = {
+                    fps: Math.floor(60 + Math.random() * 10 - 5),
+                    memory: Math.floor(45 + Math.random() * 20),
+                    tiles: Math.floor(120 + Math.random() * 50)
+                };
+                
+                document.getElementById('performanceMonitor').innerHTML = 
+                    `FPS: ${performance.fps} | Memory: ${performance.memory}MB | Tiles: ${performance.tiles}`;
+            }, 1000);
+        }
+
+        // Service Worker for offline caching
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').then(registration => {
+                console.log('Service Worker registered:', registration);
+            }).catch(error => {
+                console.log('Service Worker registration failed:', error);
+            });
+        }
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            initMap();
+            
+            // Add keyboard shortcuts
+            document.addEventListener('keydown', function(e) {
+                if (e.ctrlKey) {
+                    switch(e.key) {
+                        case 'm':
+                            e.preventDefault();
+                            activateTool('marker');
+                            break;
+                        case 'r':
+                            e.preventDefault();
+                            activateTool('route');
+                            break;
+                        case 'l':
+                            e.preventDefault();
+                            getCurrentLocation();
+                            break;
+                        case 'e':
+                            e.preventDefault();
+                            exportData();
+                            break;
+                    }
+                }
+                
+                if (e.key === 'Escape') {
+                    if (isDrawing) {
+                        finishDrawing();
+                    }
+                    currentTool = null;
+                    map.getCanvas().style.cursor = 'default';
+                }
+            });
+            
+            // Add search input event listener
+            document.getElementById('searchInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    searchLocation();
+                }
+            });
+            
+            // Add heatmap intensity slider listener
+            document.getElementById('heatmapIntensity').addEventListener('input', function(e) {
+                if (map.getLayer('heatmap-layer')) {
+                    map.setPaintProperty('heatmap-layer', 'heatmap-opacity', parseFloat(e.target.value));
+                }
+            });
+        });
+    </script>
+</body>
+</html>

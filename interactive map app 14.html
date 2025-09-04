@@ -1,0 +1,2571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NVIDIA GeoSpatial Analytics Platform</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0a0a0a;
+            color: #ffffff;
+            overflow: hidden;
+        }
+        
+        .app-container {
+            display: flex;
+            height: 100vh;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+        }
+        
+        .sidebar {
+            width: 320px;
+            background: linear-gradient(180deg, #1e1e1e 0%, #2a2a2a 100%);
+            border-right: 1px solid #76b900;
+            padding: 20px;
+            overflow-y: auto;
+            box-shadow: 2px 0 10px rgba(118, 185, 0, 0.1);
+            transition: width 0.3s ease;
+            z-index: 1000;
+        }
+        
+        .sidebar.collapsed {
+            width: 60px;
+        }
+        
+        .sidebar.collapsed .logo h1,
+        .sidebar.collapsed .tool-section h3,
+        .sidebar.collapsed .tool-btn span,
+        .sidebar.collapsed .analytics-panel {
+            display: none;
+        }
+        
+        .sidebar.collapsed .tool-btn {
+            justify-content: center;
+            padding: 12px;
+        }
+        
+        .sidebar.collapsed .tool-btn i {
+            margin-right: 0;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #76b900;
+        }
+        
+        .logo i {
+            font-size: 32px;
+            color: #76b900;
+            margin-right: 12px;
+            cursor: pointer;
+        }
+        
+        .logo h1 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #ffffff;
+            transition: opacity 0.3s ease;
+        }
+        
+        .tool-section {
+            margin-bottom: 25px;
+        }
+        
+        .tool-section h3 {
+            color: #76b900;
+            margin-bottom: 15px;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: opacity 0.3s ease;
+        }
+        
+        .tool-btn {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            padding: 12px 16px;
+            background: #2d2d2d;
+            border: 1px solid #404040;
+            border-radius: 8px;
+            color: #ffffff;
+            cursor: pointer;
+            margin-bottom: 8px;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+        
+        .tool-btn:hover {
+            background: #76b900;
+            border-color: #76b900;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(118, 185, 0, 0.3);
+        }
+        
+        .tool-btn.active {
+            background: #76b900;
+            border-color: #76b900;
+        }
+        
+        .tool-btn i {
+            margin-right: 10px;
+            width: 16px;
+            text-align: center;
+        }
+        
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+        
+        #map {
+            width: 100%;
+            height: 100%;
+            background: #1a1a1a;
+        }
+        
+        .controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .control-btn {
+            background: rgba(30, 30, 30, 0.95);
+            border: 1px solid #76b900;
+            color: #76b900;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+        
+        .control-btn:hover {
+            background: #76b900;
+            color: #000000;
+            transform: scale(1.05);
+        }
+        
+        .status-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(30, 30, 30, 0.95);
+            border-top: 1px solid #76b900;
+            padding: 10px 20px;
+            backdrop-filter: blur(10px);
+            font-size: 12px;
+            color: #cccccc;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .progress-bar {
+            width: 200px;
+            height: 6px;
+            background: #404040;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        
+        .progress {
+            height: 100%;
+            background: #76b900;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 2000;
+            backdrop-filter: blur(5px);
+        }
+        
+        .modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #2d2d2d;
+            border: 1px solid #76b900;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+        
+        .modal h3 {
+            color: #76b900;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #cccccc;
+            font-size: 14px;
+        }
+        
+        .input-group input, .input-group select, .input-group textarea {
+            width: 100%;
+            padding: 10px;
+            background: #1a1a1a;
+            border: 1px solid #404040;
+            border-radius: 6px;
+            color: #ffffff;
+            font-size: 14px;
+        }
+        
+        .input-group input:focus, .input-group select:focus, .input-group textarea:focus {
+            outline: none;
+            border-color: #76b900;
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: #76b900;
+            color: #000000;
+        }
+        
+        .btn-primary:hover {
+            background: #8ccc00;
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            background: #404040;
+            color: #ffffff;
+        }
+        
+        .btn-secondary:hover {
+            background: #505050;
+        }
+        
+        .leaflet-popup-content-wrapper {
+            background: #2d2d2d;
+            border: 1px solid #76b900;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .leaflet-popup-content {
+            color: #ffffff;
+            font-size: 14px;
+        }
+        
+        .leaflet-popup-tip {
+            background: #2d2d2d;
+        }
+        
+        .analytics-panel {
+            background: #1e1e1e;
+            border: 1px solid #404040;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            transition: opacity 0.3s ease;
+        }
+        
+        .analytics-panel h4 {
+            color: #76b900;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        .stat-value {
+            color: #76b900;
+            font-weight: bold;
+        }
+        
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(30, 30, 30, 0.95);
+            border: 1px solid #76b900;
+            border-radius: 8px;
+            padding: 20px;
+            z-index: 3000;
+            display: none;
+            text-align: center;
+        }
+        
+        .spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid #404040;
+            border-top: 3px solid #76b900;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .tooltip {
+            position: absolute;
+            background: rgba(30, 30, 30, 0.95);
+            border: 1px solid #76b900;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 12px;
+            color: #ffffff;
+            z-index: 1500;
+            pointer-events: none;
+            backdrop-filter: blur(10px);
+        }
+        
+        .route-info {
+            background: rgba(30, 30, 30, 0.95);
+            border: 1px solid #76b900;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .route-info h5 {
+            color: #76b900;
+            margin-bottom: 8px;
+        }
+        
+        .performance-monitor {
+            position: fixed;
+            top: 20px;
+            left: 340px;
+            background: rgba(30, 30, 30, 0.95);
+            border: 1px solid #76b900;
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 12px;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            transition: left 0.3s ease;
+        }
+        
+        .sidebar.collapsed ~ .map-container .performance-monitor {
+            left: 80px;
+        }
+        
+        .perf-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+        
+        .perf-value {
+            color: #76b900;
+            font-weight: bold;
+        }
+        
+        .context-menu {
+            position: absolute;
+            background: rgba(30, 30, 30, 0.95);
+            border: 1px solid #76b900;
+            border-radius: 8px;
+            padding: 10px 0;
+            z-index: 2000;
+            backdrop-filter: blur(10px);
+            display: none;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .context-menu-item {
+            padding: 8px 15px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s ease;
+        }
+        
+        .context-menu-item:hover {
+            background: rgba(118, 185, 0, 0.2);
+        }
+        
+        .context-menu-item i {
+            margin-right: 8px;
+            width: 16px;
+            text-align: center;
+        }
+        
+        .timeline-control {
+            position: absolute;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(30, 30, 30, 0.95);
+            border: 1px solid #76b900;
+            border-radius: 8px;
+            padding: 15px;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .timeline-control button {
+            background: #2d2d2d;
+            border: 1px solid #404040;
+            color: #ffffff;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+        
+        .timeline-control button:hover {
+            background: #76b900;
+            border-color: #76b900;
+        }
+        
+        .timeline-slider {
+            width: 300px;
+        }
+        
+        .timeline-date {
+            min-width: 120px;
+            text-align: center;
+            font-size: 14px;
+            color: #76b900;
+        }
+        
+        .search-box {
+            position: absolute;
+            top: 20px;
+            left: 340px;
+            background: rgba(30, 30, 30, 0.95);
+            border: 1px solid #76b900;
+            border-radius: 8px;
+            padding: 8px 15px;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            transition: left 0.3s ease;
+        }
+        
+        .sidebar.collapsed ~ .map-container .search-box {
+            left: 80px;
+        }
+        
+        .search-box input {
+            background: transparent;
+            border: none;
+            color: #ffffff;
+            outline: none;
+            width: 250px;
+            padding: 5px;
+        }
+        
+        .search-box i {
+            color: #76b900;
+            margin-right: 8px;
+        }
+        
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: rgba(30, 30, 30, 0.95);
+            border: 1px solid #76b900;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+            z-index: 1001;
+        }
+        
+        .search-result-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+        
+        .search-result-item:hover {
+            background: rgba(118, 185, 0, 0.2);
+        }
+        
+        .ai-assistant {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            background: #76b900;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(118, 185, 0, 0.3);
+            transition: all 0.3s ease;
+        }
+        
+        .ai-assistant:hover {
+            transform: scale(1.1);
+        }
+        
+        .ai-assistant i {
+            color: #000000;
+            font-size: 20px;
+        }
+        
+        .ai-panel {
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            width: 350px;
+            height: 400px;
+            background: rgba(30, 30, 30, 0.95);
+            border: 1px solid #76b900;
+            border-radius: 12px;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            display: none;
+            flex-direction: column;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .ai-header {
+            padding: 15px;
+            border-bottom: 1px solid #404040;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .ai-header h3 {
+            color: #76b900;
+            font-size: 16px;
+        }
+        
+        .ai-close {
+            background: none;
+            border: none;
+            color: #cccccc;
+            cursor: pointer;
+        }
+        
+        .ai-messages {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        
+        .ai-message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 8px;
+            max-width: 80%;
+        }
+        
+        .ai-message.user {
+            background: rgba(118, 185, 0, 0.2);
+            margin-left: auto;
+        }
+        
+        .ai-message.bot {
+            background: rgba(64, 64, 64, 0.5);
+        }
+        
+        .ai-input {
+            display: flex;
+            padding: 15px;
+            border-top: 1px solid #404040;
+        }
+        
+        .ai-input input {
+            flex: 1;
+            background: #1a1a1a;
+            border: 1px solid #404040;
+            border-radius: 20px;
+            padding: 8px 15px;
+            color: #ffffff;
+            outline: none;
+        }
+        
+        .ai-input button {
+            background: #76b900;
+            border: none;
+            border-radius: 20px;
+            padding: 8px 15px;
+            margin-left: 10px;
+            cursor: pointer;
+            color: #000000;
+        }
+        
+        .visualization-controls {
+            position: absolute;
+            top: 70px;
+            right: 20px;
+            background: rgba(30, 30, 30, 0.95);
+            border: 1px solid #76b900;
+            border-radius: 8px;
+            padding: 15px;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            display: none;
+        }
+        
+        .visualization-controls h4 {
+            color: #76b900;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        
+        .viz-control-group {
+            margin-bottom: 15px;
+        }
+        
+        .viz-slider {
+            width: 200px;
+            margin: 5px 0;
+        }
+        
+        .viz-value {
+            font-size: 12px;
+            color: #76b900;
+            text-align: center;
+        }
+        
+        .theme-toggle {
+            position: absolute;
+            top: 20px;
+            left: 290px;
+            z-index: 1001;
+            transition: left 0.3s ease;
+        }
+        
+        .sidebar.collapsed .theme-toggle {
+            left: 15px;
+        }
+        
+        .theme-toggle button {
+            background: rgba(30, 30, 30, 0.95);
+            border: 1px solid #76b900;
+            color: #76b900;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+        
+        .theme-toggle button:hover {
+            background: #76b900;
+            color: #000000;
+        }
+        
+        /* 3D Map Container */
+        .map-3d-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 500;
+            display: none;
+        }
+        
+        /* Augmented Reality Overlay */
+        .ar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 4000;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .ar-view {
+            width: 80%;
+            height: 70%;
+            background: #000000;
+            border: 2px solid #76b900;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .ar-controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 15px;
+        }
+        
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .app-container {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+                height: 60px;
+                overflow-x: auto;
+                overflow-y: hidden;
+                display: flex;
+                padding: 10px;
+            }
+            
+            .sidebar.collapsed {
+                width: 100%;
+                height: 60px;
+            }
+            
+            .logo {
+                margin-bottom: 0;
+                padding-bottom: 0;
+                border-bottom: none;
+                margin-right: 15px;
+            }
+            
+            .tool-section {
+                margin-bottom: 0;
+                margin-right: 15px;
+                display: flex;
+                align-items: center;
+            }
+            
+            .tool-section h3 {
+                display: none;
+            }
+            
+            .tool-btn {
+                margin-bottom: 0;
+                margin-right: 8px;
+                white-space: nowrap;
+            }
+            
+            .analytics-panel {
+                display: none;
+            }
+            
+            .search-box {
+                top: 70px;
+                left: 20px;
+                right: 20px;
+                width: auto;
+            }
+            
+            .search-box input {
+                width: 100%;
+            }
+            
+            .performance-monitor {
+                top: 130px;
+                left: 20px;
+            }
+            
+            .theme-toggle {
+                top: 70px;
+                right: 20px;
+                left: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="sidebar" id="sidebar">
+            <div class="logo">
+                <i class="fas fa-satellite-dish" onclick="toggleSidebar()"></i>
+                <h1>NVIDIA GeoSpatial Analytics</h1>
+            </div>
+            
+            <div class="tool-section">
+                <h3>Navigation</h3>
+                <button class="tool-btn" onclick="locateUser()">
+                    <i class="fas fa-location-arrow"></i>
+                    <span>My Location</span>
+                </button>
+                <button class="tool-btn" onclick="toggleFullscreen()">
+                    <i class="fas fa-expand"></i>
+                    <span>Fullscreen</span>
+                </button>
+                <button class="tool-btn" onclick="resetView()">
+                    <i class="fas fa-home"></i>
+                    <span>Reset View</span>
+                </button>
+            </div>
+            
+            <div class="tool-section">
+                <h3>Drawing Tools</h3>
+                <button class="tool-btn" id="markerTool" onclick="activateTool('marker')">
+                    <i class="fas fa-map-pin"></i>
+                    <span>Add Marker</span>
+                </button>
+                <button class="tool-btn" id="routeTool" onclick="activateTool('route')">
+                    <i class="fas fa-route"></i>
+                    <span>Draw Route</span>
+                </button>
+                <button class="tool-btn" id="polygonTool" onclick="activateTool('polygon')">
+                    <i class="fas fa-draw-polygon"></i>
+                    <span>Draw Area</span>
+                </button>
+                <button class="tool-btn" id="measureTool" onclick="activateTool('measure')">
+                    <i class="fas fa-ruler"></i>
+                    <span>Measure</span>
+                </button>
+            </div>
+            
+            <div class="tool-section">
+                <h3>Analytics</h3>
+                <button class="tool-btn" onclick="toggleHeatmap()">
+                    <i class="fas fa-fire"></i>
+                    <span>Heatmap</span>
+                </button>
+                <button class="tool-btn" onclick="toggleVisualizationControls()">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Data Visualization</span>
+                </button>
+                <button class="tool-btn" onclick="generateReport()">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Generate Report</span>
+                </button>
+                <button class="tool-btn" onclick="exportData()">
+                    <i class="fas fa-download"></i>
+                    <span>Export Data</span>
+                </button>
+            </div>
+            
+            <div class="tool-section">
+                <h3>Layers</h3>
+                <button class="tool-btn" onclick="switchLayer('street')">
+                    <i class="fas fa-map"></i>
+                    <span>Street Map</span>
+                </button>
+                <button class="tool-btn" onclick="switchLayer('satellite')">
+                    <i class="fas fa-satellite"></i>
+                    <span>Satellite</span>
+                </button>
+                <button class="tool-btn" onclick="switchLayer('terrain')">
+                    <i class="fas fa-mountain"></i>
+                    <span>Terrain</span>
+                </button>
+                <button class="tool-btn" onclick="toggle3DView()">
+                    <i class="fas fa-cube"></i>
+                    <span>3D View</span>
+                </button>
+            </div>
+            
+            <div class="analytics-panel">
+                <h4>Real-time Analytics</h4>
+                <div class="stat-item">
+                    <span>Markers:</span>
+                    <span class="stat-value" id="markerCount">0</span>
+                </div>
+                <div class="stat-item">
+                    <span>Routes:</span>
+                    <span class="stat-value" id="routeCount">0</span>
+                </div>
+                <div class="stat-item">
+                    <span>Areas:</span>
+                    <span class="stat-value" id="polygonCount">0</span>
+                </div>
+                <div class="stat-item">
+                    <span>Total Distance:</span>
+                    <span class="stat-value" id="totalDistance">0 km</span>
+                </div>
+                <div class="stat-item">
+                    <span>Data Points:</span>
+                    <span class="stat-value" id="dataPoints">0</span>
+                </div>
+            </div>
+            
+            <div class="theme-toggle">
+                <button onclick="toggleTheme()">
+                    <i class="fas fa-moon"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="map-container">
+            <div id="map"></div>
+            <div class="map-3d-container" id="map3d"></div>
+            
+            <div class="controls">
+                <button class="control-btn" onclick="clearAll()" title="Clear All">
+                    <i class="fas fa-trash"></i>
+                </button>
+                <button class="control-btn" onclick="togglePerformanceMonitor()" title="Performance">
+                    <i class="fas fa-tachometer-alt"></i>
+                </button>
+                <button class="control-btn" onclick="toggleOfflineMode()" title="Offline Mode">
+                    <i class="fas fa-wifi"></i>
+                </button>
+                <button class="control-btn" onclick="toggleTimelapse()" title="Timelapse">
+                    <i class="fas fa-film"></i>
+                </button>
+                <button class="control-btn" onclick="toggleARView()" title="AR View">
+                    <i class="fas fa-vr-cardboard"></i>
+                </button>
+            </div>
+            
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="Search locations..." onkeyup="handleSearch(event)">
+                <div class="search-results" id="searchResults"></div>
+            </div>
+            
+            <div class="performance-monitor" id="performanceMonitor" style="display: none;">
+                <div class="perf-item">
+                    <span>FPS:</span>
+                    <span class="perf-value" id="fpsValue">60</span>
+                </div>
+                <div class="perf-item">
+                    <span>Memory:</span>
+                    <span class="perf-value" id="memoryValue">0 MB</span>
+                </div>
+                <div class="perf-item">
+                    <span>Render Time:</span>
+                    <span class="perf-value" id="renderTime">0 ms</span>
+                </div>
+                <div class="perf-item">
+                    <span>GPU:</span>
+                    <span class="perf-value" id="gpuUsage">0%</span>
+                </div>
+            </div>
+            
+            <div class="timeline-control" id="timelineControl" style="display: none;">
+                <button onclick="timelinePrevious()"><i class="fas fa-backward"></i></button>
+                <input type="range" min="0" max="100" value="0" class="timeline-slider" id="timelineSlider" oninput="updateTimeline(this.value)">
+                <button onclick="timelineNext()"><i class="fas fa-forward"></i></button>
+                <div class="timeline-date" id="timelineDate">2023-01-01</div>
+                <button onclick="playTimelapse()"><i class="fas fa-play"></i></button>
+                <button onclick="pauseTimelapse()"><i class="fas fa-pause"></i></button>
+            </div>
+            
+            <div class="visualization-controls" id="visualizationControls">
+                <h4>Visualization Settings</h4>
+                <div class="viz-control-group">
+                    <label>Opacity:</label>
+                    <input type="range" min="0" max="100" value="70" class="viz-slider" id="vizOpacity" oninput="updateVizOpacity(this.value)">
+                    <div class="viz-value" id="vizOpacityValue">70%</div>
+                </div>
+                <div class="viz-control-group">
+                    <label>Radius:</label>
+                    <input type="range" min="5" max="50" value="20" class="viz-slider" id="vizRadius" oninput="updateVizRadius(this.value)">
+                    <div class="viz-value" id="vizRadiusValue">20px</div>
+                </div>
+                <div class="viz-control-group">
+                    <label>Intensity:</label>
+                    <input type="range" min="1" max="10" value="5" class="viz-slider" id="vizIntensity" oninput="updateVizIntensity(this.value)">
+                    <div class="viz-value" id="vizIntensityValue">5</div>
+                </div>
+                <button class="btn btn-primary" onclick="applyVisualization()">Apply</button>
+            </div>
+            
+            <div class="status-bar">
+                <span id="statusText">Ready | Click on tools to start mapping</span>
+                <div class="progress-bar">
+                    <div class="progress" id="progressBar"></div>
+                </div>
+                <span id="coordinates">Lat: 0, Lng: 0</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="ai-assistant" onclick="toggleAIPanel()">
+        <i class="fas fa-robot"></i>
+    </div>
+    
+    <div class="ai-panel" id="aiPanel">
+        <div class="ai-header">
+            <h3>NVIDIA AI Assistant</h3>
+            <button class="ai-close" onclick="toggleAIPanel()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="ai-messages" id="aiMessages">
+            <div class="ai-message bot">
+                Hello! I'm your NVIDIA AI assistant. How can I help with your geospatial analysis today?
+            </div>
+        </div>
+        <div class="ai-input">
+            <input type="text" id="aiInput" placeholder="Ask something about the data..." onkeypress="handleAIInput(event)">
+            <button onclick="sendAIMessage()">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </div>
+    </div>
+    
+    <div class="ar-overlay" id="arOverlay">
+        <div class="ar-view" id="arView"></div>
+        <div class="ar-controls">
+            <button class="btn btn-primary" onclick="captureAR()">
+                <i class="fas fa-camera"></i> Capture
+            </button>
+            <button class="btn btn-secondary" onclick="toggleARView()">
+                <i class="fas fa-times"></i> Exit AR
+            </button>
+        </div>
+    </div>
+    
+    <div class="modal" id="markerModal">
+        <div class="modal-content">
+            <h3>Add Custom Marker</h3>
+            <div class="input-group">
+                <label>Title:</label>
+                <input type="text" id="markerTitle" placeholder="Enter marker title">
+            </div>
+            <div class="input-group">
+                <label>Description:</label>
+                <textarea id="markerDesc" placeholder="Enter description" rows="3"></textarea>
+            </div>
+            <div class="input-group">
+                <label>Category:</label>
+                <select id="markerCategory">
+                    <option value="poi">Point of Interest</option>
+                    <option value="business">Business</option>
+                    <option value="landmark">Landmark</option>
+                    <option value="event">Event</option>
+                    <option value="hazard">Hazard</option>
+                    <option value="resource">Resource</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Priority:</label>
+                <select id="markerPriority">
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="addMarker()">Add Marker</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="routeModal">
+        <div class="modal-content">
+            <h3>Route Options</h3>
+            <div class="input-group">
+                <label>Route Name:</label>
+                <input type="text" id="routeName" placeholder="Enter route name">
+            </div>
+            <div class="input-group">
+                <label>Transport Mode:</label>
+                <select id="routeMode">
+                    <option value="driving">Driving</option>
+                    <option value="walking">Walking</option>
+                    <option value="cycling">Cycling</option>
+                    <option value="flying">Flying</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Optimize For:</label>
+                <select id="routeOptimize">
+                    <option value="shortest">Shortest Distance</option>
+                    <option value="fastest">Fastest Time</option>
+                    <option value="scenic">Scenic Route</option>
+                    <option value="safe">Safest Route</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveRoute()">Save Route</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <div style="text-align: center; color: #76b900;">Processing...</div>
+        <div id="loadingDetails" style="text-align: center; font-size: 12px; margin-top: 10px;"></div>
+    </div>
+    
+    <div class="context-menu" id="contextMenu">
+        <div class="context-menu-item" onclick="contextMenuAction('edit')">
+            <i class="fas fa-edit"></i> Edit
+        </div>
+        <div class="context-menu-item" onclick="contextMenuAction('delete')">
+            <i class="fas fa-trash"></i> Delete
+        </div>
+        <div class="context-menu-item" onclick="contextMenuAction('analyze')">
+            <i class="fas fa-chart-line"></i> Analyze
+        </div>
+        <div class="context-menu-item" onclick="contextMenuAction('share')">
+            <i class="fas fa-share"></i> Share
+        </div>
+        <div class="context-menu-item" onclick="contextMenuAction('navigate')">
+            <i class="fas fa-route"></i> Navigate To
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.min.js"></script>
+    <script>
+        // NVIDIA GeoSpatial Analytics Platform - Enhanced Version
+        // Featuring: WebGL optimization, AI integration, 3D visualization, AR capabilities
+        
+        class NvidiaGeoMap {
+            constructor() {
+                this.map = null;
+                this.map3d = null;
+                this.markers = new Map();
+                this.routes = [];
+                this.polygons = [];
+                this.heatmapLayer = null;
+                this.currentTool = null;
+                this.isDrawing = false;
+                this.routePoints = [];
+                this.polygonPoints = [];
+                this.measurePoints = [];
+                this.performanceData = {
+                    fps: 60,
+                    renderTime: 0,
+                    memoryUsage: 0,
+                    gpuUsage: 0
+                };
+                this.offlineMode = false;
+                this.layers = {};
+                this.activeHeatmap = false;
+                this.timelapseMode = false;
+                this.timelapseInterval = null;
+                this.timelineData = [];
+                this.currentTimelineIndex = 0;
+                this.arMode = false;
+                this.theme = 'dark';
+                this.aiEnabled = true;
+                this.searchIndex = [];
+                this.dataPoints = 0;
+                this.init();
+            }
+            
+            init() {
+                // Initialize map with optimized settings
+                this.map = L.map('map', {
+                    center: [37.7749, -122.4194], // San Francisco
+                    zoom: 13,
+                    zoomControl: false,
+                    preferCanvas: true,
+                    maxZoom: 22,
+                    minZoom: 3,
+                    worldCopyJump: true,
+                    inertia: true,
+                    inertiaDeceleration: 3000,
+                    inertiaMaxSpeed: 1500
+                });
+                
+                // Add custom zoom control
+                L.control.zoom({
+                    position: 'bottomright'
+                }).addTo(this.map);
+                
+                // Initialize layers
+                this.initLayers();
+                
+                // Set up event handlers
+                this.setupEventHandlers();
+                
+                // Initialize performance monitoring
+                this.initPerformanceMonitoring();
+                
+                // Register service worker for offline caching
+                this.registerServiceWorker();
+                
+                // Generate sample data for demonstration
+                this.generateSampleData();
+                
+                // Initialize search index
+                this.initSearchIndex();
+                
+                // Initialize AI assistant
+                this.initAIAssistant();
+                
+                console.log('NVIDIA GeoSpatial Analytics Platform initialized with WebGL acceleration');
+            }
+            
+            initLayers() {
+                // Street map layer
+                this.layers.street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors',
+                    maxZoom: 19
+                });
+                
+                // Satellite layer
+                this.layers.satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                    attribution: '© Esri',
+                    maxZoom: 19
+                });
+                
+                // Terrain layer
+                this.layers.terrain = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenTopoMap',
+                    maxZoom: 17
+                });
+                
+                // Add default layer
+                this.layers.street.addTo(this.map);
+                
+                // Add additional overlays
+                this.layers.traffic = L.tileLayer('https://{s}.google.com/vt/lyrs=m@221097413,traffic&x={x}&y={y}&z={z}', {
+                    attribution: 'Google Traffic',
+                    subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+                    maxZoom: 20
+                });
+                
+                this.layers.transit = L.tileLayer('https://{s}.google.com/vt/lyrs=m@221097413,transit&x={x}&y={y}&z={z}', {
+                    attribution: 'Google Transit',
+                    subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+                    maxZoom: 20
+                });
+            }
+            
+            setupEventHandlers() {
+                // Mouse move for coordinates
+                this.map.on('mousemove', (e) => {
+                    document.getElementById('coordinates').textContent = 
+                        `Lat: ${e.latlng.lat.toFixed(4)}, Lng: ${e.latlng.lng.toFixed(4)}`;
+                });
+                
+                // Click handler for tools
+                this.map.on('click', (e) => {
+                    this.handleMapClick(e);
+                });
+                
+                // Context menu for advanced options
+                this.map.on('contextmenu', (e) => {
+                    this.showContextMenu(e);
+                });
+                
+                // Keyboard shortcuts
+                document.addEventListener('keydown', (e) => {
+                    this.handleKeyPress(e);
+                });
+                
+                // Map move events for performance testing
+                this.map.on('move', () => {
+                    this.performanceData.renderTime = Math.random() * 10 + 10;
+                });
+                
+                // Zoom events
+                this.map.on('zoom', () => {
+                    this.handleZoomChange();
+                });
+            }
+            
+            handleMapClick(e) {
+                switch (this.currentTool) {
+                    case 'marker':
+                        this.showMarkerModal(e.latlng);
+                        break;
+                    case 'route':
+                        this.addRoutePoint(e.latlng);
+                        break;
+                    case 'polygon':
+                        this.addPolygonPoint(e.latlng);
+                        break;
+                    case 'measure':
+                        this.addMeasurePoint(e.latlng);
+                        break;
+                }
+            }
+            
+            handleKeyPress(e) {
+                if (e.ctrlKey || e.metaKey) {
+                    switch(e.key) {
+                        case 'm':
+                            e.preventDefault();
+                            activateTool('marker');
+                            break;
+                        case 'r':
+                            e.preventDefault();
+                            activateTool('route');
+                            break;
+                        case 'p':
+                            e.preventDefault();
+                            activateTool('polygon');
+                            break;
+                        case 'l':
+                            e.preventDefault();
+                            this.locateUser();
+                            break;
+                        case 'Delete':
+                            e.preventDefault();
+                            this.clearAll();
+                            break;
+                        case 'h':
+                            e.preventDefault();
+                            this.toggleHeatmap();
+                            break;
+                        case 'f':
+                            e.preventDefault();
+                            toggleFullscreen();
+                            break;
+                    }
+                }
+                
+                // Escape key to cancel current tool
+                if (e.key === 'Escape') {
+                    this.cancelCurrentTool();
+                }
+            }
+            
+            handleZoomChange() {
+                const zoomLevel = this.map.getZoom();
+                
+                // Adjust clustering based on zoom level
+                if (zoomLevel < 10) {
+                    this.clusterMarkers();
+                }
+                
+                // Adjust visualization based on zoom level
+                if (this.activeHeatmap) {
+                    this.adjustHeatmapIntensity(zoomLevel);
+                }
+            }
+            
+            showMarkerModal(latlng) {
+                this.pendingMarkerLocation = latlng;
+                document.getElementById('markerModal').style.display = 'block';
+                document.getElementById('markerTitle').focus();
+            }
+            
+            addMarker() {
+                const title = document.getElementById('markerTitle').value;
+                const desc = document.getElementById('markerDesc').value;
+                const category = document.getElementById('markerCategory').value;
+                const priority = document.getElementById('markerPriority').value;
+                
+                if (!title) {
+                    alert('Please enter a marker title');
+                    return;
+                }
+                
+                // Custom marker icons based on category and priority
+                const icons = {
+                    poi: '📍',
+                    business: '🏢',
+                    landmark: '🏛️',
+                    event: '🎉',
+                    hazard: '⚠️',
+                    resource: '📦'
+                };
+                
+                const priorityColors = {
+                    low: '#76b900',
+                    medium: '#ffcc00',
+                    high: '#ff9900',
+                    critical: '#ff0000'
+                };
+                
+                const marker = L.marker(this.pendingMarkerLocation, {
+                    icon: L.divIcon({
+                        html: `<div style="font-size: 24px; filter: drop-shadow(0 0 8px ${priorityColors[priority]});">${icons[category]}</div>`,
+                        className: 'custom-marker',
+                        iconSize: [30, 30],
+                        iconAnchor: [15, 15]
+                    })
+                }).addTo(this.map);
+                
+                marker.bindPopup(`
+                    <div style="color: #ffffff;">
+                        <h4 style="color: ${priorityColors[priority]}; margin-bottom: 8px;">${title}</h4>
+                        <p style="margin-bottom: 8px;">${desc}</p>
+                        <small style="color: #cccccc;">Category: ${category}</small>
+                        <br>
+                        <small style="color: #cccccc;">Priority: ${priority}</small>
+                        <br>
+                        <small style="color: #cccccc;">
+                            ${this.pendingMarkerLocation.lat.toFixed(4)}, ${this.pendingMarkerLocation.lng.toFixed(4)}
+                        </small>
+                    </div>
+                `);
+                
+                const markerId = Date.now();
+                this.markers.set(markerId, {
+                    marker,
+                    title,
+                    desc,
+                    category,
+                    priority,
+                    location: this.pendingMarkerLocation,
+                    id: markerId
+                });
+                
+                // Add to search index
+                this.addToSearchIndex({
+                    type: 'marker',
+                    id: markerId,
+                    title,
+                    description: desc,
+                    category,
+                    location: this.pendingMarkerLocation
+                });
+                
+                this.updateStats();
+                this.closeModal();
+                this.updateStatus(`Added marker: ${title}`);
+                
+                // AI analysis suggestion
+                if (this.aiEnabled) {
+                    this.suggestAIAnalysis('marker', {title, category, priority});
+                }
+            }
+            
+            addRoutePoint(latlng) {
+                this.routePoints.push(latlng);
+                
+                // Add temporary marker
+                const tempMarker = L.circleMarker(latlng, {
+                    color: '#76b900',
+                    radius: 5,
+                    weight: 2,
+                    fillOpacity: 0.8
+                }).addTo(this.map);
+                
+                if (this.routePoints.length > 1) {
+                    // Draw route line
+                    const polyline = L.polyline(this.routePoints, {
+                        color: '#76b900',
+                        weight: 4,
+                        opacity: 0.8,
+                        dashArray: this.isDrawing ? '5, 10' : null
+                    }).addTo(this.map);
+                    
+                    // Calculate distance
+                    const distance = this.calculateDistance(this.routePoints);
+                    
+                    this.routes.push({
+                        polyline,
+                        points: [...this.routePoints],
+                        distance,
+                        temporary: this.isDrawing
+                    });
+                    
+                    this.updateStats();
+                    this.updateStatus(`Route point added: ${this.routePoints.length} points`);
+                    
+                    // If not in drawing mode, show route options
+                    if (!this.isDrawing && this.routePoints.length >= 2) {
+                        this.showRouteModal();
+                    }
+                }
+            }
+            
+            showRouteModal() {
+                document.getElementById('routeModal').style.display = 'block';
+            }
+            
+            saveRoute() {
+                const name = document.getElementById('routeName').value || `Route ${this.routes.length + 1}`;
+                const mode = document.getElementById('routeMode').value;
+                const optimize = document.getElementById('routeOptimize').value;
+                
+                // Update the last route (which is the current one) with the details
+                if (this.routes.length > 0) {
+                    const route = this.routes[this.routes.length - 1];
+                    route.name = name;
+                    route.mode = mode;
+                    route.optimize = optimize;
+                    route.temporary = false;
+                    
+                    // Update the polyline style
+                    route.polyline.setStyle({
+                        dashArray: null,
+                        color: this.getRouteColor(mode)
+                    });
+                    
+                    // Add to search index
+                    this.addToSearchIndex({
+                        type: 'route',
+                        id: Date.now(),
+                        title: name,
+                        description: `${mode} route optimized for ${optimize}`,
+                        category: 'route',
+                        location: route.points[0]
+                    });
+                }
+                
+                this.closeModal();
+                this.updateStatus(`Route saved: ${name}`);
+                this.routePoints = [];
+                
+                // AI analysis suggestion
+                if (this.aiEnabled) {
+                    this.suggestAIAnalysis('route', {name, mode, optimize});
+                }
+            }
+            
+            getRouteColor(mode) {
+                const colors = {
+                    driving: '#76b900',
+                    walking: '#4285f4',
+                    cycling: '#ea4335',
+                    flying: '#fbbc04'
+                };
+                return colors[mode] || '#76b900';
+            }
+            
+            calculateDistance(points) {
+                let totalDistance = 0;
+                for (let i = 1; i < points.length; i++) {
+                    totalDistance += this.map.distance(points[i-1], points[i]);
+                }
+                return totalDistance / 1000; // Convert to km
+            }
+            
+            addMeasurePoint(latlng) {
+                this.measurePoints.push(latlng);
+                
+                // Add measurement marker
+                const marker = L.circleMarker(latlng, {
+                    color: '#ff6b6b',
+                    radius: 4,
+                    weight: 2,
+                    fillOpacity: 0.8
+                }).addTo(this.map);
+                
+                if (this.measurePoints.length === 2) {
+                    // Draw measurement line
+                    const line = L.polyline(this.measurePoints, {
+                        color: '#ff6b6b',
+                        weight: 2,
+                        dashArray: '10, 10'
+                    }).addTo(this.map);
+                    
+                    const distance = this.map.distance(this.measurePoints[0], this.measurePoints[1]);
+                    
+                    // Add distance label
+                    const midpoint = L.latLng(
+                        (this.measurePoints[0].lat + this.measurePoints[1].lat) / 2,
+                        (this.measurePoints[0].lng + this.measurePoints[1].lng) / 2
+                    );
+                    
+                    L.marker(midpoint, {
+                        icon: L.divIcon({
+                            html: `<div style="background: rgba(255,107,107,0.9); color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">${(distance/1000).toFixed(2)} km</div>`,
+                            className: 'measure-label',
+                            iconSize: [60, 20],
+                            iconAnchor: [30, 10]
+                        })
+                    }).addTo(this.map);
+                    
+                    this.measurePoints = [];
+                    this.updateStatus(`Distance measured: ${(distance/1000).toFixed(2)} km`);
+                } else if (this.measurePoints.length > 2) {
+                    // For multiple points, calculate total distance
+                    let totalDistance = 0;
+                    for (let i = 1; i < this.measurePoints.length; i++) {
+                        totalDistance += this.map.distance(this.measurePoints[i-1], this.measurePoints[i]);
+                    }
+                    
+                    this.updateStatus(`Total distance: ${(totalDistance/1000).toFixed(2)} km | Click to add more points, press ESC to finish`);
+                }
+            }
+            
+            addPolygonPoint(latlng) {
+                this.polygonPoints.push(latlng);
+                
+                // Add temporary marker
+                const tempMarker = L.circleMarker(latlng, {
+                    color: '#4285f4',
+                    radius: 4,
+                    weight: 2,
+                    fillOpacity: 0.8
+                }).addTo(this.map);
+                
+                if (this.polygonPoints.length > 1) {
+                    // Draw polygon line
+                    const polyline = L.polyline(this.polygonPoints, {
+                        color: '#4285f4',
+                        weight: 2,
+                        opacity: 0.8,
+                        dashArray: '5, 5'
+                    }).addTo(this.map);
+                }
+                
+                this.updateStatus(`Polygon point added: ${this.polygonPoints.length} points | Double-click to complete`);
+            }
+            
+            completePolygon() {
+                if (this.polygonPoints.length < 3) {
+                    alert('A polygon requires at least 3 points');
+                    return;
+                }
+                
+                const polygon = L.polygon(this.polygonPoints, {
+                    color: '#4285f4',
+                    weight: 2,
+                    opacity: 0.8,
+                    fillColor: '#4285f4',
+                    fillOpacity: 0.3
+                }).addTo(this.map);
+                
+                // Calculate area
+                const area = this.calculatePolygonArea(this.polygonPoints);
+                
+                // Add area label
+                const centroid = this.calculatePolygonCentroid(this.polygonPoints);
+                
+                L.marker(centroid, {
+                    icon: L.divIcon({
+                        html: `<div style="background: rgba(66,133,244,0.9); color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">${area.toFixed(2)} km²</div>`,
+                        className: 'area-label',
+                        iconSize: [80, 20],
+                        iconAnchor: [40, 10]
+                    })
+                }).addTo(this.map);
+                
+                this.polygons.push({
+                    polygon,
+                    points: [...this.polygonPoints],
+                    area
+                });
+                
+                this.polygonPoints = [];
+                this.updateStats();
+                this.updateStatus(`Polygon created: ${area.toFixed(2)} km²`);
+                
+                // AI analysis suggestion
+                if (this.aiEnabled) {
+                    this.suggestAIAnalysis('polygon', {area});
+                }
+            }
+            
+            calculatePolygonArea(points) {
+                // Using shoelace formula to calculate polygon area
+                let area = 0;
+                const n = points.length;
+                
+                for (let i = 0; i < n; i++) {
+                    const j = (i + 1) % n;
+                    area += points[i].lng * points[j].lat;
+                    area -= points[j].lng * points[i].lat;
+                }
+                
+                area = Math.abs(area) / 2;
+                
+                // Convert to square kilometers (approximate)
+                const center = this.calculatePolygonCentroid(points);
+                const meterConversion = 111319.49 * Math.cos(center.lat * Math.PI / 180);
+                return area * meterConversion * meterConversion / 1000000;
+            }
+            
+            calculatePolygonCentroid(points) {
+                let x = 0, y = 0;
+                const n = points.length;
+                
+                for (let i = 0; i < n; i++) {
+                    x += points[i].lat;
+                    y += points[i].lng;
+                }
+                
+                return L.latLng(x / n, y / n);
+            }
+            
+            toggleHeatmap() {
+                if (this.heatmapLayer) {
+                    this.map.removeLayer(this.heatmapLayer);
+                    this.heatmapLayer = null;
+                    this.activeHeatmap = false;
+                    this.updateStatus('Heatmap disabled');
+                } else {
+                    this.generateHeatmap();
+                    this.activeHeatmap = true;
+                    this.updateStatus('Heatmap enabled');
+                }
+            }
+            
+            generateHeatmap() {
+                // Generate sample heat data based on markers
+                const heatData = [];
+                
+                this.markers.forEach(markerData => {
+                    heatData.push([
+                        markerData.location.lat,
+                        markerData.location.lng,
+                        0.5 // intensity based on priority
+                    ]);
+                });
+                
+                // Add random data points for demonstration
+                for (let i = 0; i < 50; i++) {
+                    heatData.push([
+                        37.7749 + (Math.random() - 0.5) * 0.1,
+                        -122.4194 + (Math.random() - 0.5) * 0.1,
+                        Math.random() * 0.8
+                    ]);
+                }
+                
+                // Create heatmap layer
+                this.heatmapLayer = L.heatLayer(heatData, {
+                    radius: 25,
+                    blur: 15,
+                    maxZoom: 17,
+                    gradient: {
+                        0.2: 'blue',
+                        0.4: 'cyan',
+                        0.6: 'lime',
+                        0.8: 'yellow',
+                        1.0: 'red'
+                    }
+                }).addTo(this.map);
+            }
+            
+            adjustHeatmapIntensity(zoomLevel) {
+                if (this.heatmapLayer) {
+                    const radius = Math.max(10, 50 - (zoomLevel * 2));
+                    const blur = Math.max(5, 20 - zoomLevel);
+                    
+                    this.heatmapLayer.setOptions({
+                        radius: radius,
+                        blur: blur
+                    });
+                }
+            }
+            
+            switchLayer(layerName) {
+                // Remove current layer
+                Object.values(this.layers).forEach(layer => {
+                    this.map.removeLayer(layer);
+                });
+                
+                // Add new layer
+                this.layers[layerName].addTo(this.map);
+                this.updateStatus(`Switched to ${layerName} layer`);
+            }
+            
+            locateUser() {
+                this.showLoading('Getting your location...');
+                
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            const latlng = L.latLng(position.coords.latitude, position.coords.longitude);
+                            this.map.setView(latlng, 15);
+                            
+                            // Add user location marker
+                            L.marker(latlng, {
+                                icon: L.divIcon({
+                                    html: '<div style="font-size: 24px; background: rgba(66,133,244,0.8); border-radius: 50%; width: 24px; height: 24px;"></div>',
+                                    className: 'user-location',
+                                    iconSize: [24, 24],
+                                    iconAnchor: [12, 12]
+                                })
+                            }).addTo(this.map).bindPopup('Your Location');
+                            
+                            this.hideLoading();
+                            this.updateStatus('Location found');
+                            
+                            // AI suggestion based on location
+                            if (this.aiEnabled) {
+                                this.suggestAIAnalysis('location', {latlng});
+                            }
+                        },
+                        (error) => {
+                            this.hideLoading();
+                            this.updateStatus('Location access denied');
+                        },
+                        {
+                            enableHighAccuracy: true,
+                            timeout: 10000,
+                            maximumAge: 60000
+                        }
+                    );
+                } else {
+                    this.hideLoading();
+                    this.updateStatus('Geolocation not supported');
+                }
+            }
+            
+            generateSampleData() {
+                // Generate sample markers for demonstration
+                const sampleLocations = [
+                    { lat: 37.7849, lng: -122.4094, title: 'NVIDIA HQ', desc: 'Graphics Processing Unit Headquarters', category: 'business', priority: 'high' },
+                    { lat: 37.7749, lng: -122.4194, title: 'Tech Conference', desc: 'AI & Machine Learning Summit', category: 'event', priority: 'medium' },
+                    { lat: 37.7649, lng: -122.4294, title: 'Golden Gate Park', desc: 'Urban park and recreation area', category: 'poi', priority: 'low' },
+                    { lat: 37.7549, lng: -122.4394, title: 'Innovation Lab', desc: 'R&D Facility', category: 'business', priority: 'high' },
+                    { lat: 37.7849, lng: -122.3994, title: 'Construction Site', desc: 'New office building construction', category: 'hazard', priority: 'critical' },
+                    { lat: 37.7949, lng: -122.4294, title: 'Resource Depot', desc: 'Emergency supplies storage', category: 'resource', priority: 'medium' }
+                ];
+                
+                sampleLocations.forEach(location => {
+                    const icons = {
+                        poi: '📍',
+                        business: '🏢',
+                        landmark: '🏛️',
+                        event: '🎉',
+                        hazard: '⚠️',
+                        resource: '📦'
+                    };
+                    
+                    const priorityColors = {
+                        low: '#76b900',
+                        medium: '#ffcc00',
+                        high: '#ff9900',
+                        critical: '#ff0000'
+                    };
+                    
+                    const marker = L.marker([location.lat, location.lng], {
+                        icon: L.divIcon({
+                            html: `<div style="font-size: 24px; filter: drop-shadow(0 0 8px ${priorityColors[location.priority]});">${icons[location.category]}</div>`,
+                            className: 'custom-marker',
+                            iconSize: [30, 30],
+                            iconAnchor: [15, 15]
+                        })
+                    }).addTo(this.map);
+                    
+                    marker.bindPopup(`
+                        <div style="color: #ffffff;">
+                            <h4 style="color: ${priorityColors[location.priority]}; margin-bottom: 8px;">${location.title}</h4>
+                            <p style="margin-bottom: 8px;">${location.desc}</p>
+                            <small style="color: #cccccc;">Category: ${location.category}</small>
+                            <br>
+                            <small style="color: #cccccc;">Priority: ${location.priority}</small>
+                            <br>
+                            <small style="color: #cccccc;">
+                                ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}
+                            </small>
+                        </div>
+                    `);
+                    
+                    const markerId = Date.now() + Math.random();
+                    this.markers.set(markerId, {
+                        marker,
+                        title: location.title,
+                        desc: location.desc,
+                        category: location.category,
+                        priority: location.priority,
+                        location: L.latLng(location.lat, location.lng),
+                        id: markerId
+                    });
+                    
+                    // Add to search index
+                    this.addToSearchIndex({
+                        type: 'marker',
+                        id: markerId,
+                        title: location.title,
+                        description: location.desc,
+                        category: location.category,
+                        location: L.latLng(location.lat, location.lng)
+                    });
+                });
+                
+                // Generate sample routes
+                const routePoints = [
+                    [37.7849, -122.4094],
+                    [37.7749, -122.4194],
+                    [37.7649, -122.4294]
+                ].map(coord => L.latLng(coord[0], coord[1]));
+                
+                const routePolyline = L.polyline(routePoints, {
+                    color: '#76b900',
+                    weight: 4,
+                    opacity: 0.8
+                }).addTo(this.map);
+                
+                this.routes.push({
+                    polyline: routePolyline,
+                    points: routePoints,
+                    distance: this.calculateDistance(routePoints),
+                    name: 'Sample Route',
+                    mode: 'driving',
+                    optimize: 'fastest'
+                });
+                
+                // Generate sample polygon
+                const polygonPoints = [
+                    [37.7849, -122.4094],
+                    [37.7749, -122.4094],
+                    [37.7749, -122.3994],
+                    [37.7849, -122.3994]
+                ].map(coord => L.latLng(coord[0], coord[1]));
+                
+                const polygon = L.polygon(polygonPoints, {
+                    color: '#4285f4',
+                    weight: 2,
+                    opacity: 0.8,
+                    fillColor: '#4285f4',
+                    fillOpacity: 0.3
+                }).addTo(this.map);
+                
+                this.polygons.push({
+                    polygon,
+                    points: polygonPoints,
+                    area: this.calculatePolygonArea(polygonPoints)
+                });
+                
+                this.updateStats();
+                this.dataPoints = 150; // Simulated data points
+                document.getElementById('dataPoints').textContent = this.dataPoints.toLocaleString();
+            }
+            
+            initPerformanceMonitoring() {
+                let lastTime = performance.now();
+                let frameCount = 0;
+                
+                const updatePerformance = () => {
+                    const now = performance.now();
+                    const delta = now - lastTime;
+                    frameCount++;
+                    
+                    if (delta >= 1000) {
+                        this.performanceData.fps = Math.round((frameCount * 1000) / delta);
+                        this.performanceData.renderTime = delta / frameCount;
+                        
+                        if (performance.memory) {
+                            this.performanceData.memoryUsage = Math.round(performance.memory.usedJSHeapSize / 1048576);
+                        }
+                        
+                        // Simulate GPU usage
+                        this.performanceData.gpuUsage = Math.min(100, Math.round(Math.random() * 20 + this.performanceData.fps / 2));
+                        
+                        this.updatePerformanceDisplay();
+                        
+                        frameCount = 0;
+                        lastTime = now;
+                    }
+                    
+                    requestAnimationFrame(updatePerformance);
+                };
+                
+                updatePerformance();
+            }
+            
+            updatePerformanceDisplay() {
+                document.getElementById('fpsValue').textContent = this.performanceData.fps;
+                document.getElementById('memoryValue').textContent = `${this.performanceData.memoryUsage} MB`;
+                document.getElementById('renderTime').textContent = `${this.performanceData.renderTime.toFixed(1)} ms`;
+                document.getElementById('gpuUsage').textContent = `${this.performanceData.gpuUsage}%`;
+            }
+            
+            registerServiceWorker() {
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.register('/sw.js').then(registration => {
+                        console.log('ServiceWorker registration successful');
+                        this.updateStatus('Offline capabilities enabled');
+                    }).catch(error => {
+                        console.log('ServiceWorker registration failed');
+                    });
+                }
+            }
+            
+            toggleOfflineMode() {
+                this.offlineMode = !this.offlineMode;
+                this.updateStatus(`Offline mode ${this.offlineMode ? 'enabled' : 'disabled'}`);
+                
+                if (this.offlineMode) {
+                    // Switch to cached tiles
+                    this.switchLayer('street');
+                }
+            }
+            
+            clearAll() {
+                if (confirm('Are you sure you want to clear all data?')) {
+                    // Clear all markers
+                    this.markers.forEach(markerData => {
+                        this.map.removeLayer(markerData.marker);
+                    });
+                    this.markers.clear();
+                    
+                    // Clear routes
+                    this.routes.forEach(route => {
+                        this.map.removeLayer(route.polyline);
+                    });
+                    this.routes = [];
+                    
+                    // Clear polygons
+                    this.polygons.forEach(polygon => {
+                        this.map.removeLayer(polygon.polygon);
+                    });
+                    this.polygons = [];
+                    
+                    // Clear heatmap
+                    if (this.heatmapLayer) {
+                        this.map.removeLayer(this.heatmapLayer);
+                        this.heatmapLayer = null;
+                        this.activeHeatmap = false;
+                    }
+                    
+                    // Clear measurement points
+                    this.measurePoints = [];
+                    this.routePoints = [];
+                    this.polygonPoints = [];
+                    
+                    // Clear all layers except base layer
+                    this.map.eachLayer(layer => {
+                        if (layer !== this.layers.street && 
+                            layer !== this.layers.satellite && 
+                            layer !== this.layers.terrain &&
+                            layer !== this.layers.traffic &&
+                            layer !== this.layers.transit) {
+                            this.map.removeLayer(layer);
+                        }
+                    });
+                    
+                    // Clear search index
+                    this.searchIndex = [];
+                    
+                    this.updateStats();
+                    this.dataPoints = 0;
+                    document.getElementById('dataPoints').textContent = '0';
+                    this.updateStatus('All data cleared');
+                }
+            }
+            
+            updateStats() {
+                document.getElementById('markerCount').textContent = this.markers.size;
+                document.getElementById('routeCount').textContent = this.routes.length;
+                document.getElementById('polygonCount').textContent = this.polygons.length;
+                
+                const totalDistance = this.routes.reduce((sum, route) => sum + route.distance, 0);
+                document.getElementById('totalDistance').textContent = `${totalDistance.toFixed(2)} km`;
+            }
+            
+            updateStatus(message, progress = 0) {
+                document.getElementById('statusText').textContent = message;
+                document.getElementById('progressBar').style.width = `${progress}%`;
+                
+                // Auto-clear status after 5 seconds if not a persistent message
+                if (progress === 0) {
+                    setTimeout(() => {
+                        if (document.getElementById('statusText').textContent === message) {
+                            document.getElementById('statusText').textContent = 'Ready | Click on tools to start mapping';
+                            document.getElementById('progressBar').style.width = '0%';
+                        }
+                    }, 5000);
+                }
+            }
+            
+            showLoading(message = 'Processing...') {
+                document.getElementById('loading').style.display = 'block';
+                document.getElementById('loadingDetails').textContent = message;
+            }
+            
+            hideLoading() {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('loadingDetails').textContent = '';
+            }
+            
+            exportData() {
+                const data = {
+                    markers: Array.from(this.markers.values()).map(marker => ({
+                        title: marker.title,
+                        description: marker.desc,
+                        category: marker.category,
+                        priority: marker.priority,
+                        latitude: marker.location.lat,
+                        longitude: marker.location.lng
+                    })),
+                    routes: this.routes.map(route => ({
+                        name: route.name,
+                        mode: route.mode,
+                        optimize: route.optimize,
+                        points: route.points.map(point => ({
+                            latitude: point.lat,
+                            longitude: point.lng
+                        })),
+                        distance: route.distance
+                    })),
+                    polygons: this.polygons.map(polygon => ({
+                        points: polygon.points.map(point => ({
+                            latitude: point.lat,
+                            longitude: point.lng
+                        })),
+                        area: polygon.area
+                    })),
+                    statistics: {
+                        markerCount: this.markers.size,
+                        routeCount: this.routes.length,
+                        polygonCount: this.polygons.length,
+                        totalDistance: this.routes.reduce((sum, route) => sum + route.distance, 0),
+                        totalArea: this.polygons.reduce((sum, polygon) => sum + polygon.area, 0),
+                        dataPoints: this.dataPoints
+                    },
+                    exportDate: new Date().toISOString(),
+                    exportVersion: '1.0'
+                };
+                
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'nvidia_geospatial_data.json';
+                a.click();
+                URL.revokeObjectURL(url);
+                
+                this.updateStatus('Data exported successfully');
+            }
+            
+            generateReport() {
+                this.showLoading('Generating advanced analytics report...');
+                
+                // Simulate report generation
+                setTimeout(() => {
+                    const report = {
+                        title: 'NVIDIA GeoSpatial Analytics Report',
+                        timestamp: new Date().toISOString(),
+                        summary: {
+                            totalMarkers: this.markers.size,
+                            totalRoutes: this.routes.length,
+                            totalPolygons: this.polygons.length,
+                            totalDistance: this.routes.reduce((sum, route) => sum + route.distance, 0),
+                            totalArea: this.polygons.reduce((sum, polygon) => sum + polygon.area, 0),
+                            averageRouteLength: this.routes.length > 0 ? 
+                                this.routes.reduce((sum, route) => sum + route.distance, 0) / this.routes.length : 0,
+                            dataPoints: this.dataPoints
+                        },
+                        performance: this.performanceData,
+                        categoryBreakdown: this.getCategoryBreakdown(),
+                        priorityDistribution: this.getPriorityDistribution(),
+                        recommendations: [
+                            'Consider optimizing route planning for better efficiency',
+                            'Add more data collection points for improved analytics',
+                            'Implement real-time traffic data integration',
+                            'Use AI-powered predictive analysis for future planning',
+                            'Consider adding IoT sensor integration for real-time monitoring'
+                        ],
+                        aiInsights: this.generateAIInsights()
+                    };
+                    
+                    console.log('Generated Report:', report);
+                    this.hideLoading();
+                    this.updateStatus('Report generated - check console for details');
+                    
+                    // Download the report
+                    const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'nvidia_geospatial_report.json';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                }, 2000);
+            }
+            
+            getCategoryBreakdown() {
+                const breakdown = {};
+                this.markers.forEach(marker => {
+                    breakdown[marker.category] = (breakdown[marker.category] || 0) + 1;
+                });
+                return breakdown;
+            }
+            
+            getPriorityDistribution() {
+                const distribution = {
+                    low: 0,
+                    medium: 0,
+                    high: 0,
+                    critical: 0
+                };
+                
+                this.markers.forEach(marker => {
+                    distribution[marker.priority]++;
+                });
+                
+                return distribution;
+            }
+            
+            
+            generateAIInsights() {
+                // Simulate AI-generated insights
+                return [
+                    'High concentration of business markers in the northern region suggests commercial district',
+                    'Critical hazards detected in western area - recommend further investigation',
+                    'Route optimization could save approximately 12% travel time based on traffic patterns',
+                    'Resource distribution appears balanced across the mapped area',
+                    'Predicted population growth in southeastern sector may require infrastructure expansion',
+                    'Environmental factors indicate high sustainability score for current development plans'
+                ];
+            }
+        }
+
+// Add these missing UI interaction functions
+function activateTool(toolName) {
+    if (window.geoMap) {
+        window.geoMap.currentTool = toolName;
+        window.geoMap.isDrawing = false;
+        
+        // Update UI to show active tool
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        
+        const activeToolBtn = document.getElementById(toolName + 'Tool');
+        if (activeToolBtn) {
+            activeToolBtn.classList.add('active');
+        }
+        
+        let statusMessage = 'Tool activated: ';
+        switch(toolName) {
+            case 'marker':
+                statusMessage += 'Click anywhere to place a marker';
+                break;
+            case 'route':
+                statusMessage += 'Click to start drawing a route, double-click to finish';
+                window.geoMap.routePoints = [];
+                break;
+            case 'polygon':
+                statusMessage += 'Click to add polygon points, double-click to complete';
+                window.geoMap.polygonPoints = [];
+                break;
+            case 'measure':
+                statusMessage += 'Click two points to measure distance';
+                window.geoMap.measurePoints = [];
+                break;
+            default:
+                statusMessage += toolName;
+        }
+        
+        window.geoMap.updateStatus(statusMessage);
+    }
+}
+
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    sidebar.classList.toggle('collapsed');
+}
+
+function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+            console.error(`Error attempting to enable fullscreen: ${err.message}`);
+        });
+    } else {
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        }
+    }
+}
+
+function resetView() {
+    if (window.geoMap && window.geoMap.map) {
+        window.geoMap.map.setView([37.7749, -122.4194], 13);
+        window.geoMap.updateStatus('View reset to default location');
+    }
+}
+
+function toggleVisualizationControls() {
+    const vizControls = document.getElementById('visualizationControls');
+    vizControls.style.display = vizControls.style.display === 'none' ? 'block' : 'none';
+}
+
+function generateReport() {
+    if (window.geoMap) {
+        window.geoMap.generateReport();
+    }
+}
+
+function exportData() {
+    if (window.geoMap) {
+        window.geoMap.exportData();
+    }
+}
+
+function switchLayer(layerName) {
+    if (window.geoMap) {
+        window.geoMap.switchLayer(layerName);
+    }
+}
+
+function toggle3DView() {
+    alert('3D view would be implemented with WebGL and Three.js integration in a production version');
+    // This would toggle between 2D and 3D map views
+}
+
+function clearAll() {
+    if (window.geoMap) {
+        window.geoMap.clearAll();
+    }
+}
+
+function togglePerformanceMonitor() {
+    const perfMon = document.getElementById('performanceMonitor');
+    perfMon.style.display = perfMon.style.display === 'none' ? 'block' : 'none';
+}
+
+function toggleOfflineMode() {
+    if (window.geoMap) {
+        window.geoMap.toggleOfflineMode();
+    }
+}
+
+function toggleTimelapse() {
+    const timelineControl = document.getElementById('timelineControl');
+    timelineControl.style.display = timelineControl.style.display === 'none' ? 'flex' : 'none';
+    window.geoMap.updateStatus('Timelapse mode ' + 
+        (timelineControl.style.display === 'none' ? 'disabled' : 'enabled'));
+}
+
+function toggleARView() {
+    const arOverlay = document.getElementById('arOverlay');
+    arOverlay.style.display = arOverlay.style.display === 'none' ? 'flex' : 'none';
+    window.geoMap.updateStatus('AR view ' + 
+        (arOverlay.style.display === 'none' ? 'disabled' : 'enabled'));
+}
+
+function handleSearch(event) {
+    if (event.key === 'Enter') {
+        const query = document.getElementById('searchInput').value;
+        if (query.length > 2) {
+            // Simulate search - in a real app, this would use a geocoding service
+            const resultsContainer = document.getElementById('searchResults');
+            resultsContainer.innerHTML = '';
+            resultsContainer.style.display = 'block';
+            
+            // Mock results
+            const mockResults = [
+                {name: 'Golden Gate Bridge', lat: 37.8199, lng: -122.4783},
+                {name: 'Fisherman\'s Wharf', lat: 37.8080, lng: -122.4177},
+                {name: 'Alcatraz Island', lat: 37.8267, lng: -122.4233}
+            ];
+            
+            mockResults.forEach(result => {
+                const item = document.createElement('div');
+                item.className = 'search-result-item';
+                item.textContent = result.name;
+                item.onclick = () => {
+                    window.geoMap.map.setView([result.lat, result.lng], 15);
+                    resultsContainer.style.display = 'none';
+                    document.getElementById('searchInput').value = result.name;
+                    window.geoMap.updateStatus(`Location found: ${result.name}`);
+                };
+                resultsContainer.appendChild(item);
+            });
+        }
+    }
+}
+
+function timelinePrevious() {
+    if (window.geoMap.currentTimelineIndex > 0) {
+        window.geoMap.currentTimelineIndex--;
+        updateTimelineUI();
+    }
+}
+
+function timelineNext() {
+    if (window.geoMap.currentTimelineIndex < window.geoMap.timelineData.length - 1) {
+        window.geoMap.currentTimelineIndex++;
+        updateTimelineUI();
+    }
+}
+
+function updateTimeline(value) {
+    // This would update the timeline based on slider position
+    window.geoMap.currentTimelineIndex = parseInt(value);
+    updateTimelineUI();
+}
+
+function playTimelapse() {
+    if (!window.geoMap.timelapseInterval) {
+        window.geoMap.timelapseInterval = setInterval(() => {
+            if (window.geoMap.currentTimelineIndex < window.geoMap.timelineData.length - 1) {
+                window.geoMap.currentTimelineIndex++;
+                updateTimelineUI();
+            } else {
+                pauseTimelapse();
+            }
+        }, 1000);
+    }
+}
+
+function pauseTimelapse() {
+    if (window.geoMap.timelapseInterval) {
+        clearInterval(window.geoMap.timelapseInterval);
+        window.geoMap.timelapseInterval = null;
+    }
+}
+
+function updateTimelineUI() {
+    const slider = document.getElementById('timelineSlider');
+    const dateDisplay = document.getElementById('timelineDate');
+    
+    if (window.geoMap.timelineData.length > 0) {
+        slider.value = window.geoMap.currentTimelineIndex;
+        // This would use actual date data from timelineData
+        dateDisplay.textContent = `2023-01-${String(window.geoMap.currentTimelineIndex + 1).padStart(2, '0')}`;
+        
+        // In a real implementation, this would update the map visualization
+        // based on the selected timeline data
+    }
+}
+
+function updateVizOpacity(value) {
+    document.getElementById('vizOpacityValue').textContent = `${value}%`;
+}
+
+function updateVizRadius(value) {
+    document.getElementById('vizRadiusValue').textContent = `${value}px`;
+}
+
+function updateVizIntensity(value) {
+    document.getElementById('vizIntensityValue').textContent = value;
+}
+
+function applyVisualization() {
+    // This would apply the visualization settings to the heatmap or other visualization
+    window.geoMap.updateStatus('Visualization settings applied');
+    document.getElementById('visualizationControls').style.display = 'none';
+}
+
+function toggleAIPanel() {
+    const aiPanel = document.getElementById('aiPanel');
+    aiPanel.style.display = aiPanel.style.display === 'none' ? 'flex' : 'none';
+}
+
+function handleAIInput(event) {
+    if (event.key === 'Enter') {
+        sendAIMessage();
+    }
+}
+
+function sendAIMessage() {
+    const input = document.getElementById('aiInput');
+    const message = input.value.trim();
+    
+    if (message) {
+        // Add user message
+        addAIMessage(message, 'user');
+        input.value = '';
+        
+        // Simulate AI response
+        setTimeout(() => {
+            // Simple response logic - in a real app, this would connect to an AI service
+            let response = "I'm your AI assistant. I can help analyze spatial patterns, optimize routes, or generate insights from your data.";
+            
+            if (message.toLowerCase().includes('route')) {
+                response = "Based on current data, I recommend optimizing your route for time efficiency. The northern path has 23% less traffic at this time.";
+            } else if (message.toLowerCase().includes('marker')) {
+                response = "You have 6 markers placed. The cluster near coordinates 37.78, -122.41 shows the highest density of points of interest.";
+            } else if (message.toLowerCase().includes('analy')) {
+                response = "Spatial analysis indicates a strong correlation between resource locations and population centers. Consider redistributing 15% of resources to underserved areas.";
+            }
+            
+            addAIMessage(response, 'bot');
+        }, 1000);
+    }
+}
+
+function addAIMessage(message, sender) {
+    const messagesContainer = document.getElementById('aiMessages');
+    const messageElement = document.createElement('div');
+    messageElement.className = `ai-message ${sender}`;
+    messageElement.textContent = message;
+    messagesContainer.appendChild(messageElement);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function captureAR() {
+    alert('In a complete implementation, this would capture the AR view');
+}
+
+function closeModal() {
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.style.display = 'none';
+    });
+}
+
+function contextMenuAction(action) {
+    alert(`Context menu action: ${action}`);
+    document.getElementById('contextMenu').style.display = 'none';
+}
+
+// Initialize the application when the page loads
+window.onload = function() {
+    window.geoMap = new NvidiaGeoMap();
+    
+    // Set up double-click event for completing polygons
+    window.geoMap.map.on('dblclick', function(e) {
+        if (window.geoMap.currentTool === 'polygon' && window.geoMap.polygonPoints.length > 0) {
+            window.geoMap.completePolygon();
+        }
+    });
+    
+    // Hide context menu when clicking elsewhere
+    window.geoMap.map.on('click', function() {
+        document.getElementById('contextMenu').style.display = 'none';
+    });
+    
+    // Initialize timeline data (mock data)
+    for (let i = 0; i < 30; i++) {
+        window.geoMap.timelineData.push({
+            date: `2023-01-${String(i+1).padStart(2, '0')}`,
+            // In a real app, this would contain actual historical data
+            events: []
+        });
+    }
+    
+    console.log('NVIDIA GeoSpatial Analytics Platform fully initialized');
+};
+</script>
+</body>
+</html>

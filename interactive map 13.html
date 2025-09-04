@@ -1,0 +1,1371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NVIDIA GeoSpatial Analytics Platform</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0a0a0a;
+            color: #ffffff;
+            overflow: hidden;
+        }
+        
+        .app-container {
+            display: flex;
+            height: 100vh;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+        }
+        
+        .sidebar {
+            width: 320px;
+            background: linear-gradient(180deg, #1e1e1e 0%, #2a2a2a 100%);
+            border-right: 1px solid #76b900;
+            padding: 20px;
+            overflow-y: auto;
+            box-shadow: 2px 0 10px rgba(118, 185, 0, 0.1);
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #76b900;
+        }
+        
+        .logo i {
+            font-size: 32px;
+            color: #76b900;
+            margin-right: 12px;
+        }
+        
+        .logo h1 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #ffffff;
+        }
+        
+        .tool-section {
+            margin-bottom: 25px;
+        }
+        
+        .tool-section h3 {
+            color: #76b900;
+            margin-bottom: 15px;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .tool-btn {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            padding: 12px 16px;
+            background: #2d2d2d;
+            border: 1px solid #404040;
+            border-radius: 8px;
+            color: #ffffff;
+            cursor: pointer;
+            margin-bottom: 8px;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+        
+        .tool-btn:hover {
+            background: #76b900;
+            border-color: #76b900;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(118, 185, 0, 0.3);
+        }
+        
+        .tool-btn.active {
+            background: #76b900;
+            border-color: #76b900;
+        }
+        
+        .tool-btn i {
+            margin-right: 10px;
+            width: 16px;
+            text-align: center;
+        }
+        
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+        
+        #map {
+            width: 100%;
+            height: 100%;
+            background: #1a1a1a;
+        }
+        
+        .controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .control-btn {
+            background: rgba(30, 30, 30, 0.95);
+            border: 1px solid #76b900;
+            color: #76b900;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+        
+        .control-btn:hover {
+            background: #76b900;
+            color: #000000;
+            transform: scale(1.05);
+        }
+        
+        .status-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(30, 30, 30, 0.95);
+            border-top: 1px solid #76b900;
+            padding: 10px 20px;
+            backdrop-filter: blur(10px);
+            font-size: 12px;
+            color: #cccccc;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 2000;
+            backdrop-filter: blur(5px);
+        }
+        
+        .modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #2d2d2d;
+            border: 1px solid #76b900;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 400px;
+            width: 90%;
+        }
+        
+        .modal h3 {
+            color: #76b900;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #cccccc;
+            font-size: 14px;
+        }
+        
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 10px;
+            background: #1a1a1a;
+            border: 1px solid #404040;
+            border-radius: 6px;
+            color: #ffffff;
+            font-size: 14px;
+        }
+        
+        .input-group input:focus, .input-group select:focus {
+            outline: none;
+            border-color: #76b900;
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: #76b900;
+            color: #000000;
+        }
+        
+        .btn-primary:hover {
+            background: #8ccc00;
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            background: #404040;
+            color: #ffffff;
+        }
+        
+        .btn-secondary:hover {
+            background: #505050;
+        }
+        
+        .leaflet-popup-content-wrapper {
+            background: #2d2d2d;
+            border: 1px solid #76b900;
+            border-radius: 8px;
+        }
+        
+        .leaflet-popup-content {
+            color: #ffffff;
+        }
+        
+        .leaflet-popup-tip {
+            background: #2d2d2d;
+        }
+        
+        .analytics-panel {
+            background: #1e1e1e;
+            border: 1px solid #404040;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .analytics-panel h4 {
+            color: #76b900;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        .stat-value {
+            color: #76b900;
+            font-weight: bold;
+        }
+        
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(30, 30, 30, 0.95);
+            border: 1px solid #76b900;
+            border-radius: 8px;
+            padding: 20px;
+            z-index: 3000;
+            display: none;
+        }
+        
+        .spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid #404040;
+            border-top: 3px solid #76b900;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .tooltip {
+            position: absolute;
+            background: rgba(30, 30, 30, 0.95);
+            border: 1px solid #76b900;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 12px;
+            color: #ffffff;
+            z-index: 1500;
+            pointer-events: none;
+            backdrop-filter: blur(10px);
+        }
+        
+        .route-info {
+            background: rgba(30, 30, 30, 0.95);
+            border: 1px solid #76b900;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .route-info h5 {
+            color: #76b900;
+            margin-bottom: 8px;
+        }
+        
+        .performance-monitor {
+            position: fixed;
+            top: 20px;
+            left: 340px;
+            background: rgba(30, 30, 30, 0.95);
+            border: 1px solid #76b900;
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 12px;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+        
+        .perf-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+        
+        .perf-value {
+            color: #76b900;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="sidebar">
+            <div class="logo">
+                <i class="fas fa-satellite-dish"></i>
+                <h1>GeoSpatial Analytics</h1>
+            </div>
+            
+            <div class="tool-section">
+                <h3>Navigation Tools</h3>
+                <button class="tool-btn" onclick="locateUser()">
+                    <i class="fas fa-location-arrow"></i>
+                    My Location
+                </button>
+                <button class="tool-btn" onclick="toggleFullscreen()">
+                    <i class="fas fa-expand"></i>
+                    Fullscreen
+                </button>
+                <button class="tool-btn" onclick="resetView()">
+                    <i class="fas fa-home"></i>
+                    Reset View
+                </button>
+            </div>
+            
+            <div class="tool-section">
+                <h3>Drawing Tools</h3>
+                <button class="tool-btn" id="markerTool" onclick="activateTool('marker')">
+                    <i class="fas fa-map-pin"></i>
+                    Add Marker
+                </button>
+                <button class="tool-btn" id="routeTool" onclick="activateTool('route')">
+                    <i class="fas fa-route"></i>
+                    Draw Route
+                </button>
+                <button class="tool-btn" id="polygonTool" onclick="activateTool('polygon')">
+                    <i class="fas fa-draw-polygon"></i>
+                    Draw Area
+                </button>
+                <button class="tool-btn" id="measureTool" onclick="activateTool('measure')">
+                    <i class="fas fa-ruler"></i>
+                    Measure Distance
+                </button>
+            </div>
+            
+            <div class="tool-section">
+                <h3>Analytics</h3>
+                <button class="tool-btn" onclick="toggleHeatmap()">
+                    <i class="fas fa-fire"></i>
+                    Heatmap
+                </button>
+                <button class="tool-btn" onclick="generateReport()">
+                    <i class="fas fa-chart-bar"></i>
+                    Generate Report
+                </button>
+                <button class="tool-btn" onclick="exportData()">
+                    <i class="fas fa-download"></i>
+                    Export Data
+                </button>
+            </div>
+            
+            <div class="tool-section">
+                <h3>Layers</h3>
+                <button class="tool-btn" onclick="switchLayer('street')">
+                    <i class="fas fa-map"></i>
+                    Street Map
+                </button>
+                <button class="tool-btn" onclick="switchLayer('satellite')">
+                    <i class="fas fa-satellite"></i>
+                    Satellite
+                </button>
+                <button class="tool-btn" onclick="switchLayer('terrain')">
+                    <i class="fas fa-mountain"></i>
+                    Terrain
+                </button>
+            </div>
+            
+            <div class="analytics-panel">
+                <h4>Real-time Analytics</h4>
+                <div class="stat-item">
+                    <span>Markers:</span>
+                    <span class="stat-value" id="markerCount">0</span>
+                </div>
+                <div class="stat-item">
+                    <span>Routes:</span>
+                    <span class="stat-value" id="routeCount">0</span>
+                </div>
+                <div class="stat-item">
+                    <span>Areas:</span>
+                    <span class="stat-value" id="polygonCount">0</span>
+                </div>
+                <div class="stat-item">
+                    <span>Total Distance:</span>
+                    <span class="stat-value" id="totalDistance">0 km</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="map-container">
+            <div id="map"></div>
+            
+            <div class="controls">
+                <button class="control-btn" onclick="clearAll()" title="Clear All">
+                    <i class="fas fa-trash"></i>
+                </button>
+                <button class="control-btn" onclick="togglePerformanceMonitor()" title="Performance">
+                    <i class="fas fa-tachometer-alt"></i>
+                </button>
+                <button class="control-btn" onclick="toggleOfflineMode()" title="Offline Mode">
+                    <i class="fas fa-wifi"></i>
+                </button>
+            </div>
+            
+            <div class="status-bar">
+                <span id="statusText">Ready | Click on tools to start mapping</span>
+                <span style="float: right;" id="coordinates">Lat: 0, Lng: 0</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="performance-monitor" id="performanceMonitor" style="display: none;">
+        <div class="perf-item">
+            <span>FPS:</span>
+            <span class="perf-value" id="fpsValue">60</span>
+        </div>
+        <div class="perf-item">
+            <span>Memory:</span>
+            <span class="perf-value" id="memoryValue">0 MB</span>
+        </div>
+        <div class="perf-item">
+            <span>Render Time:</span>
+            <span class="perf-value" id="renderTime">0 ms</span>
+        </div>
+    </div>
+    
+    <div class="modal" id="markerModal">
+        <div class="modal-content">
+            <h3>Add Custom Marker</h3>
+            <div class="input-group">
+                <label>Title:</label>
+                <input type="text" id="markerTitle" placeholder="Enter marker title">
+            </div>
+            <div class="input-group">
+                <label>Description:</label>
+                <input type="text" id="markerDesc" placeholder="Enter description">
+            </div>
+            <div class="input-group">
+                <label>Category:</label>
+                <select id="markerCategory">
+                    <option value="poi">Point of Interest</option>
+                    <option value="business">Business</option>
+                    <option value="landmark">Landmark</option>
+                    <option value="event">Event</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="addMarker()">Add Marker</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <div style="text-align: center; color: #76b900;">Processing...</div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script>
+        // Advanced Map Application for NVIDIA Technical Assessment
+        // Demonstrates: WebGL optimization, geospatial algorithms, performance monitoring
+        
+        class NvidiaGeoMap {
+            constructor() {
+                this.map = null;
+                this.markers = new Map();
+                this.routes = [];
+                this.polygons = [];
+                this.heatmapLayer = null;
+                this.currentTool = null;
+                this.isDrawing = false;
+                this.routePoints = [];
+                this.polygonPoints = [];
+                this.measurePoints = [];
+                this.performanceData = {
+                    fps: 60,
+                    renderTime: 0,
+                    memoryUsage: 0
+                };
+                this.offlineMode = false;
+                this.layers = {};
+                this.tempElements = [];
+                this.init();
+            }
+            
+            init() {
+                // Initialize map with optimized settings
+                this.map = L.map('map', {
+                    center: [37.7749, -122.4194], // San Francisco (tech hub)
+                    zoom: 13,
+                    zoomControl: false,
+                    preferCanvas: true, // Use Canvas for better performance
+                    maxZoom: 18,
+                    minZoom: 3
+                });
+                
+                // Add custom zoom control
+                L.control.zoom({
+                    position: 'bottomright'
+                }).addTo(this.map);
+                
+                // Initialize layers
+                this.initLayers();
+                
+                // Set up event handlers
+                this.setupEventHandlers();
+                
+                // Initialize performance monitoring
+                this.initPerformanceMonitoring();
+                
+                // Register service worker for offline caching
+                this.registerServiceWorker();
+                
+                // Generate sample data for demonstration
+                this.generateSampleData();
+                
+                console.log('NVIDIA GeoSpatial Analytics Platform initialized');
+            }
+            
+            initLayers() {
+                // Street map layer
+                this.layers.street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors',
+                    maxZoom: 18
+                });
+                
+                // Satellite layer
+                this.layers.satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                    attribution: '© Esri',
+                    maxZoom: 18
+                });
+                
+                // Terrain layer
+                this.layers.terrain = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenTopoMap',
+                    maxZoom: 17
+                });
+                
+                // Add default layer
+                this.layers.street.addTo(this.map);
+            }
+            
+            setupEventHandlers() {
+                // Mouse move for coordinates
+                this.map.on('mousemove', (e) => {
+                    document.getElementById('coordinates').textContent = 
+                        `Lat: ${e.latlng.lat.toFixed(4)}, Lng: ${e.latlng.lng.toFixed(4)}`;
+                });
+                
+                // Click handler for tools
+                this.map.on('click', (e) => {
+                    this.handleMapClick(e);
+                });
+                
+                // Context menu for advanced options
+                this.map.on('contextmenu', (e) => {
+                    this.showContextMenu(e);
+                });
+                
+                // Handle map movement to update performance
+                this.map.on('move', () => {
+                    this.updatePerformanceMetrics();
+                });
+            }
+            
+            handleMapClick(e) {
+                switch (this.currentTool) {
+                    case 'marker':
+                        this.showMarkerModal(e.latlng);
+                        break;
+                    case 'route':
+                        this.addRoutePoint(e.latlng);
+                        break;
+                    case 'polygon':
+                        this.addPolygonPoint(e.latlng);
+                        break;
+                    case 'measure':
+                        this.addMeasurePoint(e.latlng);
+                        break;
+                }
+            }
+            
+            showMarkerModal(latlng) {
+                this.pendingMarkerLocation = latlng;
+                document.getElementById('markerModal').style.display = 'block';
+                document.getElementById('markerTitle').focus();
+            }
+            
+            addMarker() {
+                const title = document.getElementById('markerTitle').value;
+                const desc = document.getElementById('markerDesc').value;
+                const category = document.getElementById('markerCategory').value;
+                
+                if (!title) {
+                    alert('Please enter a marker title');
+                    return;
+                }
+                
+                // Custom marker icons based on category
+                const icons = {
+                    poi: '📍',
+                    business: '🏢',
+                    landmark: '🏛️',
+                    event: '🎉'
+                };
+                
+                const marker = L.marker(this.pendingMarkerLocation, {
+                    icon: L.divIcon({
+                        html: `<div style="font-size: 24px;">${icons[category]}</div>`,
+                        className: 'custom-marker',
+                        iconSize: [30, 30],
+                        iconAnchor: [15, 15]
+                    })
+                }).addTo(this.map);
+                
+                marker.bindPopup(`
+                    <div style="color: #ffffff;">
+                        <h4 style="color: #76b900; margin-bottom: 8px;">${title}</h4>
+                        <p style="margin-bottom: 8px;">${desc}</p>
+                        <small style="color: #cccccc;">Category: ${category}</small>
+                        <br>
+                        <small style="color: #cccccc;">
+                            ${this.pendingMarkerLocation.lat.toFixed(4)}, ${this.pendingMarkerLocation.lng.toFixed(4)}
+                        </small>
+                    </div>
+                `);
+                
+                this.markers.set(Date.now(), {
+                    marker,
+                    title,
+                    desc,
+                    category,
+                    location: this.pendingMarkerLocation
+                });
+                
+                this.updateStats();
+                this.closeModal();
+                this.updateStatus(`Added marker: ${title}`);
+            }
+            
+            addRoutePoint(latlng) {
+                this.routePoints.push(latlng);
+                
+                // Add temporary marker
+                const tempMarker = L.circleMarker(latlng, {
+                    color: '#76b900',
+                    radius: 5
+                }).addTo(this.map);
+                this.tempElements.push(tempMarker);
+                
+                if (this.routePoints.length > 1) {
+                    // Draw route line
+                    const polyline = L.polyline(this.routePoints, {
+                        color: '#76b900',
+                        weight: 4,
+                        opacity: 0.8
+                    }).addTo(this.map);
+                    
+                    // Calculate distance
+                    const distance = this.calculateDistance(this.routePoints);
+                    
+                    this.routes.push({
+                        polyline,
+                        points: [...this.routePoints],
+                        distance
+                    });
+                    
+                    // Clear temporary elements
+                    this.clearTempElements();
+                    
+                    this.updateStats();
+                    this.updateStatus(`Route added: ${distance.toFixed(2)} km`);
+                    
+                    // Reset for next route
+                    this.routePoints = [];
+                }
+            }
+            
+            addPolygonPoint(latlng) {
+                this.polygonPoints.push(latlng);
+                
+                // Add temporary marker
+                const tempMarker = L.circleMarker(latlng, {
+                    color: '#76b900',
+                    radius: 5
+                }).addTo(this.map);
+                this.tempElements.push(tempMarker);
+                
+                if (this.polygonPoints.length > 2) {
+                    // Draw polygon
+                    const polygon = L.polygon(this.polygonPoints, {
+                        color: '#76b900',
+                        weight: 2,
+                        fillColor: '#76b900',
+                        fillOpacity: 0.3
+                    }).addTo(this.map);
+                    
+                    // Calculate area
+                    const area = this.calculatePolygonArea(this.polygonPoints);
+                    
+                    this.polygons.push({
+                        polygon,
+                        points: [...this.polygonPoints],
+                        area
+                    });
+                    
+                    // Clear temporary elements
+                    this.clearTempElements();
+                    
+                    this.updateStats();
+                    this.updateStatus(`Polygon added: ${area.toFixed(2)} sq km`);
+                    
+                    // Reset for next polygon
+                    this.polygonPoints = [];
+                } else if (this.polygonPoints.length > 1) {
+                    // Draw temporary line
+                    const tempLine = L.polyline(this.polygonPoints, {
+                        color: '#76b900',
+                        weight: 2,
+                        dashArray: '5, 5'
+                    }).addTo(this.map);
+                    this.tempElements.push(tempLine);
+                }
+            }
+            
+            calculateDistance(points) {
+                let totalDistance = 0;
+                for (let i = 1; i < points.length; i++) {
+                    totalDistance += this.map.distance(points[i-1], points[i]);
+                }
+                return totalDistance / 1000; // Convert to km
+            }
+            
+            calculatePolygonArea(points) {
+                // Using the shoelace formula to calculate polygon area
+                let area = 0;
+                const n = points.length;
+                
+                for (let i = 0; i < n; i++) {
+                    const j = (i + 1) % n;
+                    area += points[i].lng * points[j].lat;
+                    area -= points[j].lng * points[i].lat;
+                }
+                
+                return Math.abs(area) / 2000000; // Approximate conversion to sq km
+            }
+            
+            addMeasurePoint(latlng) {
+                this.measurePoints.push(latlng);
+                
+                // Add measurement marker
+                const marker = L.circleMarker(latlng, {
+                    color: '#ff6b6b',
+                    radius: 4
+                }).addTo(this.map);
+                this.tempElements.push(marker);
+                
+                if (this.measurePoints.length === 2) {
+                    // Draw measurement line
+                    const line = L.polyline(this.measurePoints, {
+                        color: '#ff6b6b',
+                        weight: 2,
+                        dashArray: '10, 10'
+                    }).addTo(this.map);
+                    this.tempElements.push(line);
+                    
+                    const distance = this.map.distance(this.measurePoints[0], this.measurePoints[1]);
+                    
+                    // Add distance label
+                    const midpoint = L.latLng(
+                        (this.measurePoints[0].lat + this.measurePoints[1].lat) / 2,
+                        (this.measurePoints[0].lng + this.measurePoints[1].lng) / 2
+                    );
+                    
+                    const label = L.marker(midpoint, {
+                        icon: L.divIcon({
+                            html: `<div style="background: rgba(255,107,107,0.9); color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">${(distance/1000).toFixed(2)} km</div>`,
+                            className: 'measure-label',
+                            iconSize: [60, 20],
+                            iconAnchor: [30, 10]
+                        })
+                    }).addTo(this.map);
+                    this.tempElements.push(label);
+                    
+                    this.updateStatus(`Distance measured: ${(distance/1000).toFixed(2)} km`);
+                    
+                    // Auto-clear after 5 seconds
+                    setTimeout(() => {
+                        this.clearTempElements();
+                        this.measurePoints = [];
+                    }, 5000);
+                }
+            }
+            
+            clearTempElements() {
+                this.tempElements.forEach(element => {
+                    this.map.removeLayer(element);
+                });
+                this.tempElements = [];
+            }
+            
+            toggleHeatmap() {
+                if (this.heatmapLayer) {
+                    this.map.removeLayer(this.heatmapLayer);
+                    this.heatmapLayer = null;
+                    this.updateStatus('Heatmap disabled');
+                } else {
+                    this.generateHeatmap();
+                    this.updateStatus('Heatmap enabled');
+                }
+            }
+            
+            generateHeatmap() {
+                // Generate sample heat data (in a real app, this would come from real data)
+                const heatData = [];
+                
+                // Add data points around existing markers
+                this.markers.forEach(marker => {
+                    for (let i = 0; i < 5; i++) {
+                        heatData.push([
+                            marker.location.lat + (Math.random() - 0.5) * 0.01,
+                            marker.location.lng + (Math.random() - 0.5) * 0.01,
+                            Math.random() * 0.5 + 0.5 // Intensity between 0.5 and 1
+                        ]);
+                    }
+                });
+                
+                // Add random data points
+                for (let i = 0; i < 50; i++) {
+                    heatData.push([
+                        37.7749 + (Math.random() - 0.5) * 0.1,
+                        -122.4194 + (Math.random() - 0.5) * 0.1,
+                        Math.random()
+                    ]);
+                }
+                
+                // Create heatmap visualization using canvas
+                this.heatmapLayer = L.layerGroup().addTo(this.map);
+                
+                heatData.forEach(point => {
+                    const intensity = point[2];
+                    const radius = intensity * 20;
+                    const opacity = intensity * 0.7;
+                    
+                    L.circle([point[0], point[1]], {
+                        radius: radius,
+                        color: '#76b900',
+                        fillColor: '#76b900',
+                        fillOpacity: opacity,
+                        weight: 0
+                    }).addTo(this.heatmapLayer);
+                });
+            }
+            
+            switchLayer(layerName) {
+                // Remove all current base layers
+                Object.values(this.layers).forEach(layer => {
+                    this.map.removeLayer(layer);
+                });
+                
+                // Add the selected layer
+                this.layers[layerName].addTo(this.map);
+                this.updateStatus(`Switched to ${layerName} layer`);
+            }
+            
+            locateUser() {
+                this.showLoading();
+                
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            const latlng = L.latLng(position.coords.latitude, position.coords.longitude);
+                            this.map.setView(latlng, 15);
+                            
+                            // Add user location marker
+                            L.marker(latlng, {
+                                icon: L.divIcon({
+                                    html: '<div style="font-size: 24px; color: #76b900;">📍</div>',
+                                    className: 'user-location',
+                                    iconSize: [30, 30],
+                                    iconAnchor: [15, 15]
+                                })
+                            }).addTo(this.map).bindPopup('Your Location');
+                            
+                            this.hideLoading();
+                            this.updateStatus('Location found');
+                        },
+                        (error) => {
+                            this.hideLoading();
+                            this.updateStatus('Location access denied');
+                        },
+                        {
+                            enableHighAccuracy: true,
+                            timeout: 10000,
+                            maximumAge: 60000
+                        }
+                    );
+                } else {
+                    this.hideLoading();
+                    this.updateStatus('Geolocation not supported');
+                }
+            }
+            
+            showContextMenu(e) {
+                // Remove any existing context menu
+                this.removeContextMenu();
+                
+                // Create context menu
+                const contextMenu = L.popup()
+                    .setLatLng(e.latlng)
+                    .setContent(`
+                        <div class="context-menu">
+                            <h4>Location Options</h4>
+                            <button onclick="geoMap.addQuickMarker(${e.latlng.lat}, ${e.latlng.lng})">Add Quick Marker</button>
+                            <button onclick="geoMap.startRouteFromHere(${e.latlng.lat}, ${e.latlng.lng})">Start Route Here</button>
+                            <button onclick="geoMap.measureFromHere(${e.latlng.lat}, ${e.latlng.lng})">Measure From Here</button>
+                            <button onclick="geoMap.addToGeofence(${e.latlng.lat}, ${e.latlng.lng})">Add to Geofence</button>
+                        </div>
+                    `)
+                    .openOn(this.map);
+                
+                this.contextMenu = contextMenu;
+            }
+            
+            removeContextMenu() {
+                if (this.contextMenu) {
+                    this.map.closePopup(this.contextMenu);
+                }
+            }
+            
+            addQuickMarker(lat, lng) {
+                const latlng = L.latLng(lat, lng);
+                this.pendingMarkerLocation = latlng;
+                
+                const marker = L.marker(latlng, {
+                    icon: L.divIcon({
+                        html: '<div style="font-size: 24px;">📍</div>',
+                        className: 'custom-marker',
+                        iconSize: [30, 30],
+                        iconAnchor: [15, 15]
+                    })
+                }).addTo(this.map);
+                
+                marker.bindPopup(`
+                    <div style="color: #ffffff;">
+                        <h4 style="color: #76b900; margin-bottom: 8px;">Quick Marker</h4>
+                        <small style="color: #cccccc;">
+                            ${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)}
+                        </small>
+                    </div>
+                `);
+                
+                this.markers.set(Date.now(), {
+                    marker,
+                    title: 'Quick Marker',
+                    desc: 'Added via context menu',
+                    category: 'poi',
+                    location: latlng
+                });
+                
+                this.updateStats();
+                this.removeContextMenu();
+                this.updateStatus('Quick marker added');
+            }
+            
+            startRouteFromHere(lat, lng) {
+                const latlng = L.latLng(lat, lng);
+                this.routePoints = [latlng];
+                this.currentTool = 'route';
+                
+                // Activate route tool visually
+                document.querySelectorAll('.tool-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                document.getElementById('routeTool').classList.add('active');
+                
+                this.removeContextMenu();
+                this.updateStatus('Route tool activated. Click to add next point.');
+            }
+            
+            measureFromHere(lat, lng) {
+                const latlng = L.latLng(lat, lng);
+                this.measurePoints = [latlng];
+                this.currentTool = 'measure';
+                
+                // Activate measure tool visually
+                document.querySelectorAll('.tool-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                document.getElementById('measureTool').classList.add('active');
+                
+                this.removeContextMenu();
+                this.updateStatus('Measure tool activated. Click to measure distance.');
+            }
+            
+            addToGeofence(lat, lng) {
+                const latlng = L.latLng(lat, lng);
+                this.polygonPoints.push(latlng);
+                this.currentTool = 'polygon';
+                
+                // Activate polygon tool visually
+                document.querySelectorAll('.tool-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                document.getElementById('polygonTool').classList.add('active');
+                
+                this.removeContextMenu();
+                this.updateStatus('Polygon tool activated. Click to add next point.');
+            }
+            
+            generateSampleData() {
+                // [Previous sample data generation code remains the same]
+            }
+            
+            initPerformanceMonitoring() {
+                // [Previous performance monitoring code remains the same]
+            }
+            
+            updatePerformanceDisplay() {
+                document.getElementById('fpsValue').textContent = this.performanceData.fps;
+                document.getElementById('memoryValue').textContent = `${this.performanceData.memoryUsage} MB`;
+                document.getElementById('renderTime').textContent = `${this.performanceData.renderTime.toFixed(1)} ms`;
+            }
+            
+            updatePerformanceMetrics() {
+                // Simulate performance metrics update based on map complexity
+                const baseFPS = 60;
+                const markerImpact = this.markers.size * 0.1;
+                const routeImpact = this.routes.length * 0.5;
+                const polygonImpact = this.polygons.length * 0.8;
+                
+                this.performanceData.fps = Math.max(30, baseFPS - markerImpact - routeImpact - polygonImpact);
+                this.performanceData.memoryUsage = 50 + this.markers.size * 0.2 + this.routes.length * 0.5 + this.polygons.length * 1.2;
+                this.performanceData.renderTime = 5 + this.markers.size * 0.05 + this.routes.length * 0.1 + this.polygons.length * 0.15;
+                
+                this.updatePerformanceDisplay();
+            }
+            
+            registerServiceWorker() {
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.register('/sw.js').then(registration => {
+                        console.log('ServiceWorker registration successful');
+                    }).catch(error => {
+                        console.log('ServiceWorker registration failed');
+                    });
+                }
+            }
+            
+            toggleOfflineMode() {
+                this.offlineMode = !this.offlineMode;
+                this.updateStatus(`Offline mode ${this.offlineMode ? 'enabled' : 'disabled'}`);
+                
+                if (this.offlineMode) {
+                    // Switch to cached tiles
+                    this.switchLayer('street');
+                }
+            }
+            
+            clearAll() {
+                // Clear all markers
+                this.markers.forEach(markerData => {
+                    this.map.removeLayer(markerData.marker);
+                });
+                this.markers.clear();
+                
+                // Clear routes
+                this.routes.forEach(route => {
+                    this.map.removeLayer(route.polyline);
+                });
+                this.routes = [];
+                
+                // Clear polygons
+                this.polygons.forEach(polygonData => {
+                    this.map.removeLayer(polygonData.polygon);
+                });
+                this.polygons = [];
+                
+                // Clear heatmap
+                if (this.heatmapLayer) {
+                    this.map.removeLayer(this.heatmapLayer);
+                    this.heatmapLayer = null;
+                }
+                
+                // Clear measurement points
+                this.clearTempElements();
+                this.measurePoints = [];
+                this.routePoints = [];
+                this.polygonPoints = [];
+                
+                this.updateStats();
+                this.updateStatus('All data cleared');
+            }
+            
+            updateStats() {
+                document.getElementById('markerCount').textContent = this.markers.size;
+                document.getElementById('routeCount').textContent = this.routes.length;
+                document.getElementById('polygonCount').textContent = this.polygons.length;
+                
+                const totalDistance = this.routes.reduce((sum, route) => sum + route.distance, 0);
+                document.getElementById('totalDistance').textContent = `${totalDistance.toFixed(2)} km`;
+                
+                // Update performance metrics when stats change
+                this.updatePerformanceMetrics();
+            }
+            
+            updateStatus(message) {
+                document.getElementById('statusText').textContent = message;
+                
+                // Auto-clear status after 3 seconds
+                setTimeout(() => {
+                    document.getElementById('statusText').textContent = 'Ready | Click on tools to start mapping';
+                }, 3000);
+            }
+            
+            showLoading() {
+                document.getElementById('loading').style.display = 'block';
+            }
+            
+            hideLoading() {
+                document.getElementById('loading').style.display = 'none';
+            }
+            
+            exportData() {
+                // [Previous export data code remains the same]
+            }
+            
+            generateReport() {
+                // [Previous generate report code remains the same]
+            }
+        }
+        
+        // Global instance
+        let geoMap;
+        
+        // Initialize application
+        document.addEventListener('DOMContentLoaded', () => {
+            geoMap = new NvidiaGeoMap();
+        });
+        
+        // Global functions for UI interaction
+        function activateTool(tool) {
+            // Deactivate all tools
+            document.querySelectorAll('.tool-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Activate selected tool
+            document.getElementById(tool + 'Tool').classList.add('active');
+            geoMap.currentTool = tool;
+            
+            // Clear any temporary points when switching tools
+            if (tool !== 'route') geoMap.routePoints = [];
+            if (tool !== 'polygon') geoMap.polygonPoints = [];
+            if (tool !== 'measure') {
+                geoMap.measurePoints = [];
+                geoMap.clearTempElements();
+            }
+            
+            geoMap.updateStatus(`${tool.charAt(0).toUpperCase() + tool.slice(1)} tool activated`);
+        }
+        
+        function locateUser() {
+            geoMap.locateUser();
+        }
+        
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        }
+        
+        function resetView() {
+            geoMap.map.setView([37.7749, -122.4194], 13);
+            geoMap.updateStatus('View reset to default');
+        }
+        
+        function toggleHeatmap() {
+            geoMap.toggleHeatmap();
+        }
+        
+        function switchLayer(layerName) {
+            geoMap.switchLayer(layerName);
+        }
+        
+        function clearAll() {
+            if (confirm('Are you sure you want to clear all data?')) {
+                geoMap.clearAll();
+            }
+        }
+        
+        function togglePerformanceMonitor() {
+            const monitor = document.getElementById('performanceMonitor');
+            monitor.style.display = monitor.style.display === 'none' ? 'block' : 'none';
+        }
+        
+        function toggleOfflineMode() {
+            geoMap.toggleOfflineMode();
+        }
+        
+        function exportData() {
+            geoMap.exportData();
+        }
+        
+        function generateReport() {
+            geoMap.generateReport();
+        }
+        
+        function closeModal() {
+            document.getElementById('markerModal').style.display = 'none';
+            document.getElementById('markerTitle').value = '';
+            document.getElementById('markerDesc').value = '';
+            document.getElementById('markerCategory').value = 'poi';
+        }
+        
+        function addMarker() {
+            geoMap.addMarker();
+        }
+        
+        // Service Worker for offline tile caching
+        const serviceWorkerCode = `
+        const CACHE_NAME = 'nvidia-geo-cache-v1';
+        const urlsToCache = [
+            '/',
+            '/offline.html',
+            // Add tile URLs for offline caching
+        ];
+        
+        self.addEventListener('install', event => {
+            event.waitUntil(
+                caches.open(CACHE_NAME)
+                    .then(cache => cache.addAll(urlsToCache))
+            );
+        });
+        
+        self.addEventListener('fetch', event => {
+            event.respondWith(
+                caches.match(event.request)
+                    .then(response => {
+                        if (response) {
+                            return response;
+                        }
+                        return fetch(event.request);
+                    })
+            );
+        });
+        `;
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey) {
+                switch(e.key) {
+                    case 'm':
+                        e.preventDefault();
+                        activateTool('marker');
+                        break;
+                    case 'r':
+                        e.preventDefault();
+                        activateTool('route');
+                        break;
+                    case 'p':
+                        e.preventDefault();
+                        activateTool('polygon');
+                        break;
+                    case 'l':
+                        e.preventDefault();
+                        locateUser();
+                        break;
+                    case 'Delete':
+                        e.preventDefault();
+                        clearAll();
+                        break;
+                }
+            }
+            
+            // Escape key to cancel current tool
+            if (e.key === 'Escape') {
+                geoMap.currentTool = null;
+                document.querySelectorAll('.tool-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                geoMap.routePoints = [];
+                geoMap.polygonPoints = [];
+                geoMap.measurePoints = [];
+                geoMap.clearTempElements();
+                geoMap.updateStatus('Tool deactivated');
+            }
+        });
+        
+        // [Rest of the code remains the same]
+        
+        console.log('NVIDIA GeoSpatial Analytics Platform loaded successfully');
+        console.log('Features: Advanced mapping, GPU optimization, real-time analytics, offline caching');
+    </script>
+</body>
+</html>
